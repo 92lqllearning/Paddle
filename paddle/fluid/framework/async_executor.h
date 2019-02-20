@@ -78,6 +78,7 @@ class AsyncExecutor {
   void InitModel();
   void SaveModel(const std::string& path);
   void InitParamConfig();
+  void LoadFromOldModel(const std::string& old_model_path);
 #endif
 
  private:

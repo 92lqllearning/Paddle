@@ -23,7 +23,7 @@ paddle.fluid.DistributeTranspiler.get_trainer_program ArgSpec(args=['self', 'wai
 paddle.fluid.DistributeTranspiler.transpile ArgSpec(args=['self', 'trainer_id', 'program', 'pservers', 'trainers', 'sync_mode', 'startup_program', 'current_endpoint'], varargs=None, keywords=None, defaults=(None, '127.0.0.1:6174', 1, True, None, '127.0.0.1:6174'))
 paddle.fluid.memory_optimize ArgSpec(args=['input_program', 'skip_opt_set', 'print_log', 'level', 'skip_grads'], varargs=None, keywords=None, defaults=(None, False, 0, False))
 paddle.fluid.release_memory ArgSpec(args=['input_program', 'skip_opt_set'], varargs=None, keywords=None, defaults=(None,))
-paddle.fluid.DistributeTranspilerConfig.__init__ 
+paddle.fluid.DistributeTranspilerConfig.__init__
 paddle.fluid.ParallelExecutor.__init__ ArgSpec(args=['self', 'use_cuda', 'loss_name', 'main_program', 'share_vars_from', 'exec_strategy', 'build_strategy', 'num_trainers', 'trainer_id', 'scope'], varargs=None, keywords=None, defaults=(None, None, None, None, None, 1, 0, None))
 paddle.fluid.ParallelExecutor.run ArgSpec(args=['self', 'fetch_list', 'feed', 'feed_dict', 'return_numpy'], varargs=None, keywords=None, defaults=(None, None, True))
 paddle.fluid.create_lod_tensor ArgSpec(args=['data', 'recursive_seq_lens', 'place'], varargs=None, keywords=None, defaults=None)
@@ -40,6 +40,7 @@ paddle.fluid.AsyncExecutor.get_instance ArgSpec(args=['self'], varargs=None, key
 paddle.fluid.AsyncExecutor.init_model ArgSpec(args=['self'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.AsyncExecutor.init_server ArgSpec(args=['self', 'dist_desc'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.AsyncExecutor.init_worker ArgSpec(args=['self', 'dist_desc', 'startup_program'], varargs=None, keywords=None, defaults=None)
+paddle.fluid.AsyncExecutor.load_from_old_model ArgSpec(args=['self'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.AsyncExecutor.run ArgSpec(args=['self', 'program', 'data_feed', 'filelist', 'thread_num', 'fetch', 'mode', 'debug'], varargs=None, keywords=None, defaults=('', False))
 paddle.fluid.AsyncExecutor.save_model ArgSpec(args=['self', 'save_path'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.AsyncExecutor.stop ArgSpec(args=['self'], varargs=None, keywords=None, defaults=None)
@@ -404,7 +405,7 @@ paddle.fluid.transpiler.HashName.reset ArgSpec(args=['self'], varargs=None, keyw
 paddle.fluid.transpiler.RoundRobin.__init__ ArgSpec(args=['self', 'pserver_endpoints'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.transpiler.RoundRobin.dispatch ArgSpec(args=['self', 'varlist'], varargs=None, keywords=None, defaults=None)
 paddle.fluid.transpiler.RoundRobin.reset ArgSpec(args=['self'], varargs=None, keywords=None, defaults=None)
-paddle.fluid.transpiler.DistributeTranspilerConfig.__init__ 
+paddle.fluid.transpiler.DistributeTranspilerConfig.__init__
 paddle.fluid.nets.simple_img_conv_pool ArgSpec(args=['input', 'num_filters', 'filter_size', 'pool_size', 'pool_stride', 'pool_padding', 'pool_type', 'global_pooling', 'conv_stride', 'conv_padding', 'conv_dilation', 'conv_groups', 'param_attr', 'bias_attr', 'act', 'use_cudnn'], varargs=None, keywords=None, defaults=(0, 'max', False, 1, 0, 1, 1, None, None, None, True))
 paddle.fluid.nets.sequence_conv_pool ArgSpec(args=['input', 'num_filters', 'filter_size', 'param_attr', 'act', 'pool_type', 'bias_attr'], varargs=None, keywords=None, defaults=(None, 'sigmoid', 'max', None))
 paddle.fluid.nets.glu ArgSpec(args=['input', 'dim'], varargs=None, keywords=None, defaults=(-1,))

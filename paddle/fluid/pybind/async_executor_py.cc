@@ -55,7 +55,8 @@ void BindAsyncExecutor(py::module* m) {
       .def("stop_server", &framework::AsyncExecutor::StopServer)
       .def("gather_servers", &framework::AsyncExecutor::GatherServers)
       .def("init_model", &framework::AsyncExecutor::InitModel)
-      .def("save_model", &framework::AsyncExecutor::SaveModel);
+      .def("save_model", &framework::AsyncExecutor::SaveModel)
+      .def("load_from_old_model", &framework::AsyncExecutor::LoadFromOldModel);
 }  // end BindAsyncExecutor
 #else
 void BindAsyncExecutor(py::module* m) {

@@ -172,12 +172,12 @@ class AsyncExecutor(object):
         """
         download_data is a default download method for distributed training
         a user download data without this method
-        
+
         Example:
             >>> exe = fluid.AsyncExecutor()
             >>> exe.download_data("/xxx/xxx/xx/",
-            >>>                   "./data", "afs://            
-            >>>  xxx.xxx.xxx.xxx:9901", "xxx,yyy") 
+            >>>                   "./data", "afs://
+            >>>  xxx.xxx.xxx.xxx:9901", "xxx,yyy")
         Args:
             afs_path(str): afs_path defined by users
             local_path(str): download data path
@@ -217,7 +217,7 @@ class AsyncExecutor(object):
     def config_distributed_nodes(self):
         """
         if a user needs to run distributed async executor
-        he or she needs to do a global configuration so that 
+        he or she needs to do a global configuration so that
         information of current process can be obtained
         """
         self.instance = ps_instance.PaddlePSInstance(1, 2)
@@ -243,7 +243,7 @@ class AsyncExecutor(object):
         """
         initialize server of current node if current process is a server
         Args:
-        dist_desc(str): a protobuf string that describes 
+        dist_desc(str): a protobuf string that describes
                         how to init a worker and a server
         """
         if self.instance is None:
@@ -294,6 +294,19 @@ class AsyncExecutor(object):
                 'instance is None, please run config_distributed_nodes init instance'
             )
         self.executor.init_model()
+
+    def load_from_old_model(self, old_model_path):
+        if self.instance is None:
+            raise ValueError(
+                'instance is None, please run config_distributed_nodes init instance'
+            )
+        if not os.path.isdir(old_model_path):
+            raise ValueError("There is no directory named '%s'", old_model_path)
+
+        self.instance.barrier_all()
+        if self.instance.is_first_worker():
+            self.executor.load_from_old_model(old_model_path)
+        self.instance.barrier_all()
 
     def save_model(self, save_path):
         """

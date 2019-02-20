@@ -29,6 +29,7 @@ limitations under the License. */
 #include "paddle/fluid/inference/io.h"
 #include "paddle/fluid/platform/place.h"
 #include "paddle/fluid/pybind/pybind.h"
+#include "paddle/fluid/framework/variable_helper.h"
 #ifdef PADDLE_WITH_PSLIB
 #include <pslib.h>
 #endif
@@ -203,6 +204,59 @@ void AsyncExecutor::InitModel() {
       exit(-1);
     }
   }
+}
+
+void AsyncExecutor::LoadFromOldModel(const std::string& old_model_path) {
+  // load ProgramDesc from model file
+  auto read_proto_func = [](const std::string& filename) -> ProgramDesc {
+    std::string contents;
+    std::ifstream fin(filename, std::ios::in | std::ios::binary);
+    fin.seekg(0, std::ios::end);
+    contents.resize(fin.tellg());
+    fin.seekg(0, std::ios::beg);
+    fin.read(&contents[0], contents.size());
+    fin.close();
+    ProgramDesc program_desc(contents);
+    return program_desc;
+  };
+
+  const ProgramDesc old_program = read_proto_func(old_model_path + "/__model__");
+  Scope* old_scope = new Scope();
+  auto& old_block = old_program.Block(0);
+  auto place = platform::CPUPlace();
+
+  for (auto table_id : _param_config.dense_table_id) {
+    for (auto& t : _param_config.dense_variable_name[table_id]) {
+      VarDesc* old_var_desc = old_block.FindVar(t);
+      if (old_var_desc == nullptr) {
+        continue;
+      }
+      // init variable in scope
+      Variable* old_var = old_scope->Var(old_var_desc->Name());
+      InitializeVariable(old_var, old_var_desc->GetType());
+      // load variable from model
+      paddle::framework::AttributeMap attrs;
+      attrs.insert({"file_path", old_model_path + "/" + old_var_desc->Name()});
+      auto load_op = paddle::framework::OpRegistry::CreateOp(
+        "load", {}, {{"Out", {old_var_desc->Name()}}}, attrs);
+      load_op->Run(*old_scope, place);
+      // old model data, here we assume data type is float
+      LoDTensor* old_tensor = old_var->GetMutable<LoDTensor>();
+      float* old_data = old_tensor->data<float>();
+      // new model data, here we assume data type is float
+      Variable* var = root_scope_->FindVar(t);
+      CHECK(var != nullptr) << "var[" << t << "] not found";
+      LoDTensor* tensor = var->GetMutable<LoDTensor>();
+      float* data = tensor->data<float>();
+      // copy from old data to new data
+      if (old_tensor->numel() > tensor->numel()) {
+        memcpy(data, old_data, tensor->numel() * sizeof(float));
+      } else if (old_tensor->numel() < tensor->numel()) {
+        memcpy(data, old_data, old_tensor->numel() * sizeof(float));
+      }
+    }
+  }
+  delete old_scope;
 }
 
 void AsyncExecutor::SaveModel(const std::string& path) {
