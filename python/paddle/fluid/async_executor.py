@@ -89,6 +89,49 @@ class AsyncExecutor(object):
         self.executor = core.AsyncExecutor(scope, p)
         self.instance = None
 
+    def __print_global_auc(self):
+        """
+            get global auc of all distributed workers,
+            the first worker will print it.
+        """
+        stat_pos = "_generated_var_2"
+        stat_neg = "_generated_var_3"
+        scope = global_scope()
+        if scope.find_var(stat_pos) is None or scope.find_var(stat_neg) is None:
+            return
+        self.instance.barrier_worker()
+
+        pos = np.array(scope.find_var(stat_pos).get_tensor())
+        old_pos_shape = np.array(pos.shape)
+        neg = np.array(scope.find_var(stat_neg).get_tensor())
+        old_neg_shape = np.array(neg.shape)
+
+        pos = pos.reshape(-1)
+        global_pos = np.copy(pos) * 0
+        self.instance.all_reduce_sum(pos, global_pos)
+        global_pos = global_pos.reshape(old_pos_shape)
+
+        neg = neg.reshape(-1)
+        global_neg = np.copy(neg) * 0
+        self.instance.all_reduce_sum(neg, global_neg)
+        global_neg = global_neg.reshape(old_neg_shape)
+
+        num_bucket = len(global_pos[0])
+        area = 0.0
+        pos = 0.0
+        neg = 0.0
+        new_pos = 0.0
+        new_neg = 0.0
+        for i in xrange(num_bucket):
+            index = num_bucket - 1 - i
+            new_pos = pos + global_pos[0][index]
+            new_neg = neg + global_neg[0][index]
+            area += (new_neg - neg) * (pos + new_pos) / 2;
+            pos = new_pos
+            neg = new_neg
+        if (pos * neg) != 0 and self.instance.is_first_worker():
+            print("global auc = %s" % (area / (pos * neg)))
+
     def run(self,
             program,
             data_feed,
@@ -161,6 +204,8 @@ class AsyncExecutor(object):
                                      data_feed.desc(), filelist, thread_num,
                                      fetch_var_names, mode, debug)
 
+        self.__print_global_auc()
+
     def download_data(self,
                       afs_path,
                       local_path,
@@ -172,12 +217,12 @@ class AsyncExecutor(object):
         """
         download_data is a default download method for distributed training
         a user download data without this method
-        
+
         Example:
             >>> exe = fluid.AsyncExecutor()
             >>> exe.download_data("/xxx/xxx/xx/",
-            >>>                   "./data", "afs://            
-            >>>  xxx.xxx.xxx.xxx:9901", "xxx,yyy") 
+            >>>                   "./data", "afs://
+            >>>  xxx.xxx.xxx.xxx:9901", "xxx,yyy")
         Args:
             afs_path(str): afs_path defined by users
             local_path(str): download data path
@@ -217,7 +262,7 @@ class AsyncExecutor(object):
     def config_distributed_nodes(self):
         """
         if a user needs to run distributed async executor
-        he or she needs to do a global configuration so that 
+        he or she needs to do a global configuration so that
         information of current process can be obtained
         """
         self.instance = ps_instance.PaddlePSInstance(1, 2)
@@ -243,7 +288,7 @@ class AsyncExecutor(object):
         """
         initialize server of current node if current process is a server
         Args:
-        dist_desc(str): a protobuf string that describes 
+        dist_desc(str): a protobuf string that describes
                         how to init a worker and a server
         """
         if self.instance is None:

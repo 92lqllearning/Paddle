@@ -51,8 +51,10 @@ class AucKernel : public framework::OpKernel<T> {
     auto stat_pos_calc = stat_pos_data.data();
     auto stat_neg_calc = stat_neg_data.data();
 
+    _auc_update_mutex.lock();
     statAuc(label, predict, num_pred_buckets, num_thresholds, slide_steps,
             origin_stat_pos, origin_stat_neg, &stat_pos_calc, &stat_neg_calc);
+    _auc_update_mutex.unlock();
 
     calcAuc(ctx, stat_pos_calc, stat_neg_calc, num_thresholds, auc);
   }
@@ -160,6 +162,8 @@ class AucKernel : public framework::OpKernel<T> {
       *auc = *auc / totPos / totNeg;
     }
   }
+
+  mutable std::mutex _auc_update_mutex;
 };
 
 }  // namespace operators
