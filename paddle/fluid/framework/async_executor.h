@@ -96,6 +96,7 @@ class AsyncExecutor {
   std::shared_ptr<paddle::distributed::PSlib> _pslib_ptr;
   std::shared_ptr<DensePullThread> _pull_dense_thread;
   AsyncWorkerParamConfig _param_config;
+  std::mutex _auc_update_mutex;
 #endif
   Scope* root_scope_;
   platform::Place place_;

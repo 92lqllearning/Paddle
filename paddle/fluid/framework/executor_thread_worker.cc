@@ -339,6 +339,10 @@ void ExecutorThreadWorker::SetRootScope(Scope* g_scope) {
 
 #ifdef PADDLE_WITH_PSLIB
 //  AsyncExecutor
+
+void AsyncExecutorThreadWorker::SetUpdateAucLock(std::mutex* mutex) {
+  _update_auc_mutex = mutex;
+}
 void AsyncExecutorThreadWorker::TrainFiles() {
   SetDevice();
 
@@ -392,7 +396,13 @@ void AsyncExecutorThreadWorker::TrainOneNetwork() {
       }
     }
     if (!need_skip) {
-      op->Run(*thread_scope_, place_);
+      if (op->Type().find("auc") != std::string::npos) {
+        _auc_update_mutex->lock();
+        op->Run(*thread_scope_, place_);
+        _auc_update_mutex->unlock();
+      } else {
+        op->Run(*thread_scope_, place_);
+      }
     }
   }
   UpdateParams();

@@ -201,6 +201,7 @@ class AsyncExecutorThreadWorker : public ExecutorThreadWorker {
   void SetPSlibPtr(std::shared_ptr<paddle::distributed::PSlib> pslib_ptr);
   void SetPullDenseThread(std::shared_ptr<DensePullThread> dpt);
   void SetParamConfig(AsyncWorkerParamConfig* param_config);
+  void SetUpdateAucLock(std::mutex* mutex);
   void TrainFiles();
   void TrainOneNetwork();
   void PrepareParams();
@@ -238,6 +239,7 @@ class AsyncExecutorThreadWorker : public ExecutorThreadWorker {
   std::vector<::std::future<int32_t>> _push_dense_status;
 
   AsyncWorkerParamConfig* _param_config;
+  std::mutex* _update_auc_mutex;
 };
 #endif
 

@@ -54,6 +54,7 @@ void AsyncExecutor::CreateThreads(
   worker->SetPSlibPtr(_pslib_ptr);
   worker->SetPullDenseThread(_pull_dense_thread);
   worker->SetParamConfig(&_param_config);
+  worker->SetUpdateAucLock(&_auc_update_mutex);
 #endif
 }
 

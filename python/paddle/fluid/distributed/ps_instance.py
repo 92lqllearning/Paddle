@@ -16,10 +16,10 @@ from .helper import MPIHelper
 
 class PaddlePSInstance(object):
     """
-        PaddlePSInstance class is used to generate A instance of server or worker 
+        PaddlePSInstance class is used to generate A instance of server or worker
         Args:
             server_worker_mode: is a value 0 or 1, default is 1
-            proc_per_node: process per node, default is 2 
+            proc_per_node: process per node, default is 2
         Examples:
             instance = PaddlePSInstance(1, 2)
     """
@@ -68,7 +68,7 @@ class PaddlePSInstance(object):
 
     def get_worker_index(self):
         """
-        Return worker index 
+        Return worker index
         """
         if self._server_worker_mode == 0:
             return self._rankid == self.server_num
@@ -77,7 +77,7 @@ class PaddlePSInstance(object):
 
     def get_server_index(self):
         """
-        Return server index 
+        Return server index
         """
         if self._server_worker_mode == 0:
             return self.rank_id
@@ -110,7 +110,7 @@ class PaddlePSInstance(object):
 
     def gather_ips(self):
         """
-        Return all servers and workers ip throught mpi allgather 
+        Return all servers and workers ip throught mpi allgather
         """
         self._ips = self.dh.comm.allgather(self._ip)
         return self._ips
@@ -134,6 +134,9 @@ class PaddlePSInstance(object):
         if self.is_worker():
             self._comm.barrier()
         pass
+
+    def all_reduce_sum(self, sendbuf, recvbuf):
+        self._comm.Allreduce(sendbuf, recvbuf)
 
     def finalize(self):
         """
