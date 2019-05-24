@@ -282,7 +282,7 @@ class InMemoryDataset(DatasetBase):
 
         """
         trainer_num = 1
-        fleet_send_batch_size = 80000
+        fleet_send_batch_size = 8000#0
         if fleet is not None:
             fleet._role_maker._barrier_worker()
             trainer_num = fleet.worker_num()

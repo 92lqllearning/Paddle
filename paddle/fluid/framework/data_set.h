@@ -139,6 +139,8 @@ class DatasetImpl : public Dataset {
                                 const std::string& msg);
   std::vector<std::shared_ptr<paddle::framework::DataFeed>> readers_;
   std::vector<T> memory_data_;
+  paddle::framework::Channel<T> input_channel_;
+  std::vector<paddle::framework::Channel<T>> output_channel_vec_;
   std::mutex mutex_for_update_memory_data_;
   int thread_num_;
   paddle::framework::DataFeedDesc data_feed_desc_;

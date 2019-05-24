@@ -29,6 +29,8 @@ limitations under the License. */
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/variable_helper.h"
 #include "paddle/fluid/platform/macros.h"  // for DISABLE_COPY_AND_ASSIGN
+#include "paddle/fluid/framework/io/shell.h"
+#include "paddle/fluid/framework/data_feed.h"
 
 namespace paddle {
 namespace framework {
@@ -52,6 +54,30 @@ namespace framework {
 // Param<in>: scope, table_id, var_names
 // Param<out>: push_sparse_status
 
+/*class MultiSlotType;
+
+#ifdef PADDLE_WITH_PSLIB
+template <class AR>
+paddle::ps::Archive<AR>& operator<<(paddle::ps::Archive<AR>& ar,
+                                    const MultiSlotType& ins) {
+  ar << ins.GetType();
+  ar << ins.GetOffset();
+  ar << ins.GetFloatData();
+  ar << ins.GetUint64Data();
+  return ar;
+}
+
+template <class AR>
+paddle::ps::Archive<AR>& operator>>(paddle::ps::Archive<AR>& ar,
+                                    MultiSlotType& ins) {
+  ar >> ins.MutableType();
+  ar >> ins.MutableOffset();
+  ar >> ins.MutableFloatData();
+  ar >> ins.MutableUint64Data();
+  return ar;
+}
+#endif
+*/
 class FleetWrapper {
  public:
   virtual ~FleetWrapper() {}

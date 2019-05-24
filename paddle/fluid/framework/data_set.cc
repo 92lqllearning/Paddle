@@ -35,6 +35,8 @@ DatasetImpl<T>::DatasetImpl() {
   thread_num_ = 1;
   trainer_num_ = 1;
   file_idx_ = 0;
+  input_channel_ = paddle::framework::make_channel<T>();
+//  output_channel_ = paddle::framework::make_channel<T>();
 }
 
 // set filelist, file_idx_ will reset to zero.
@@ -116,24 +118,56 @@ void DatasetImpl<T>::RegisterClientToClientMsgHandler() {
 // which will later be fed into readers' channel
 template <typename T>
 void DatasetImpl<T>::LoadIntoMemory() {
-  VLOG(3) << "DatasetImpl<T>::LoadIntoMemory() begin";
+  int pid = (int)getpid();
+  VLOG(0) << "DatasetImpl<T>::LoadIntoMemory() begin";
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+
   platform::Timer timeline;
   timeline.Start();
   if (readers_.size() == 0) {
     CreateReaders();
   }
-  std::vector<std::thread> load_threads;
-  for (int64_t i = 0; i < thread_num_; ++i) {
-    load_threads.push_back(std::thread(
-        &paddle::framework::DataFeed::LoadIntoMemory, readers_[i].get()));
+
+  { 
+     paddle::framework::Channel<T> tmp_input_channel = paddle::framework::make_channel<T>();
+      for (int i = 0; i < thread_num_; ++i) {
+        readers_[i]->SetInputChannel(tmp_input_channel);
+      }
+
+      std::vector<std::thread> load_threads;
+      for (int64_t i = 0; i < thread_num_; ++i) {
+        load_threads.push_back(std::thread(
+            &paddle::framework::DataFeed::LoadIntoMemory, readers_[i].get()));
+      }
+      for (std::thread& t : load_threads) {
+        t.join();
+      }
+      tmp_input_channel->close();
+      timeline.Pause();
+
+      VLOG(0) << "DatasetImpl<T>::LoadIntoMemory() end"
+              << ", memory data size=" << tmp_input_channel->size()
+              << ", cost time=" << timeline.ElapsedSec() << " seconds";
+
+      VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+
+      std::vector<std::thread>().swap(load_threads);
+      std::vector<std::shared_ptr<paddle::framework::DataFeed>>().swap(readers_);
+
+      VLOG(0) << "tmp_input_channel size=" << tmp_input_channel->size();
+
+      VLOG(0) << "call clear";
+      tmp_input_channel->my_clear();
+      VLOG(0) << "call clear  end";
+
+      VLOG(0) << "tmp_input_channel size=" << tmp_input_channel->size();
+
+      tmp_input_channel = nullptr;
+
+      VLOG(0) << "after tmp_input_channel clear " << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
   }
-  for (std::thread& t : load_threads) {
-    t.join();
-  }
-  timeline.Pause();
-  VLOG(3) << "DatasetImpl<T>::LoadIntoMemory() end"
-          << ", memory data size=" << memory_data_.size()
-          << ", cost time=" << timeline.ElapsedSec() << " seconds";
+  VLOG(0) << "out of  tmp_input_channel scope " << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+
 }
 
 // release memory data
@@ -175,29 +209,116 @@ void DatasetImpl<T>::LocalShuffle() {
 
 template <typename T>
 void DatasetImpl<T>::GlobalShuffle() {
-  VLOG(3) << "DatasetImpl<T>::GlobalShuffle() begin";
+  int pid = (int)getpid();
+  VLOG(0) << "DatasetImpl<T>::GlobalShuffle() begin";
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
   platform::Timer timeline;
   timeline.Start();
-  if (readers_.size() == 0) {
-    CreateReaders();
-  }
+//  if (readers_.size() == 0) {
+//    CreateReaders();
+//  }
+
+//  VLOG(0) << "open";
+//  input_channel_->open();
+ 
+/*  VLOG(0) << "channel size " << input_channel_->size();
+  input_channel_->close();
+   VLOG(0) <<"read";
+  input_channel_->read_all(memory_data_);
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+  VLOG(0) << "channel size " << input_channel_->size();
   auto fleet_ptr = FleetWrapper::GetInstance();
+  VLOG(0) <<"local shuffle";
   // local shuffle all data before global shuffle
   std::shuffle(memory_data_.begin(), memory_data_.end(),
                fleet_ptr->LocalRandomEngine());
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+  VLOG(0) << "write";
+  input_channel_->open();
+  input_channel_->write(std::move(memory_data_));*/
+  VLOG(0) << "channel size " << input_channel_->size();
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+//  input_channel_->close();
+  VLOG(0) << "set_block_size";
+  input_channel_->set_block_size(fleet_send_batch_size_);
+   VLOG(0) << "close";
+  input_channel_->close();
+  VLOG(0) << "channel size " << input_channel_->size();
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+
+
+  output_channel_vec_.resize(thread_num_);
+  for (int i = 0; i < thread_num_; ++i) {
+    output_channel_vec_[i] = paddle::framework::make_channel<T>();   
+  }
+  
+
   VLOG(3) << "start global shuffle threads";
   std::vector<std::thread> global_shuffle_threads;
   for (int i = 0; i < thread_num_; ++i) {
     global_shuffle_threads.push_back(std::thread(
-        &paddle::framework::DataFeed::GlobalShuffle, readers_[i].get()));
+//        &paddle::framework::DataFeed::GlobalShuffle, readers_[i].get()));
+    [this]() {
+   auto fleet_ptr = FleetWrapper::GetInstance();
+  std::vector<paddle::ps::BinaryArchive> ars(this->trainer_num_);
+  std::vector<T> data;
+  while (this->input_channel_->read(data)) {
+      VLOG(0) << "input_channel_->read(data)";
+    for (auto& t : data) {
+      auto client_id = fleet_ptr->LocalRandomEngine()() % this->trainer_num_;
+      ars[client_id] << t;
+    }
+
+    std::vector<std::future<int32_t>> total_status;
+    std::vector<int> send_index(this->trainer_num_);
+    for (int i = 0; i < this->trainer_num_; ++i) {
+      send_index[i] = i;
+    }
+    std::shuffle(send_index.begin(), send_index.end(), fleet_ptr->LocalRandomEngine());
+
+    for (auto index = 0u; index < this->trainer_num_; ++index) {
+      int i = send_index[index];
+      if (ars[i].length() == 0) {
+        continue;
+      }
+      std::string msg(ars[i].buffer(), ars[i].length());
+      auto ret = fleet_ptr->SendClientToClientMsg(0, i, msg);
+      total_status.push_back(std::move(ret));
+    }
+
+    for (auto& t : total_status) {
+      t.wait();
+    }
+
+    ars.clear();
+    ars = std::vector<paddle::ps::BinaryArchive>(this->trainer_num_);
+    data = std::vector<T>();
+    sleep(2);//this->fleet_send_sleep_seconds_);
+
+  } 
+    }));    
   }
   for (std::thread& t : global_shuffle_threads) {
     t.join();
   }
-  std::vector<T>().swap(memory_data_);
+  VLOG(0) << "end global shuffle threads "
+  << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
+
+  std::vector<std::thread>().swap(global_shuffle_threads);
+  VLOG(0) << "input channel size " << input_channel_->size();
+  VLOG(0) << " mem size " << memory_data_.size();
+  input_channel_->close();
+//  input_channel_->read_all(memory_data_);
+//  VLOG(0) << "input channel size " << input_channel_->size();
+//  VLOG(0) << " mem size " << memory_data_.size();
+//  std::vector<T>().swap(memory_data_);
+//  VLOG(0) << "after swap  mem size " << memory_data_.size();
   timeline.Pause();
-  VLOG(3) << "DatasetImpl<T>::GlobalShuffle() end, cost time="
+  input_channel_ = paddle::framework::make_channel<T>();
+   VLOG(0) << "after reset input channel size " << input_channel_->size();
+  VLOG(0) << "DatasetImpl<T>::GlobalShuffle() end, cost time="
           << timeline.ElapsedSec() << " seconds";
+  VLOG(0) << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");
 }
 
 template <typename T>
@@ -235,6 +356,7 @@ void DatasetImpl<T>::CreateReaders() {
     readers_.back()->SetFileListMutex(&mutex_for_pick_file_);
     readers_.back()->SetFileListIndex(&file_idx_);
     readers_.back()->SetFileList(filelist_);
+//    readers_.back()->SetInputChannel(input_channel_);
   }
 }
 
@@ -283,12 +405,30 @@ template <typename T>
 int DatasetImpl<T>::ReceiveFromClient(int msg_type, int client_id,
                                       const std::string& msg) {
 #ifdef _LINUX
-  VLOG(3) << "ReceiveFromClient msg_type=" << msg_type
+  VLOG(0) << "ReceiveFromClient msg_type=" << msg_type
           << ", client_id=" << client_id << ", msg length=" << msg.length();
   auto fleet_ptr = FleetWrapper::GetInstance();
   int64_t index = fleet_ptr->LocalRandomEngine()() % thread_num_;
-  VLOG(3) << "ramdom index=" << index;
-  readers_[index]->PutInsToChannel(msg);
+  VLOG(0) << "ramdom index=" << index;
+
+  if (msg.length() == 0) {
+    return 0;
+  }
+
+  paddle::ps::BinaryArchive ar;
+    ar.set_read_buffer(const_cast<char*>(msg.c_str()), msg.length(), nullptr);
+    if (ar.cursor() == ar.finish()) {
+        return 0;
+    }
+    std::vector<T> data;
+    while (ar.cursor() < ar.finish()) {
+        data.push_back(ar.get<T>());
+    }
+    CHECK(ar.cursor() == ar.finish());
+    output_channel_vec_[index]->write(std::move(data));
+//    output_channel_vec_[0]->write(std::move(data));
+
+//  readers_[index]->PutInsToChannel(msg);
 #endif
   return 0;
 }

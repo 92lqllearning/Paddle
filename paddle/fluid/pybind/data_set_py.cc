@@ -42,7 +42,7 @@ namespace paddle {
 namespace pybind {
 
 void BindDataset(py::module* m) {
-  py::class_<framework::Dataset, std::shared_ptr<framework::Dataset>>(*m,
+  py::class_<framework::Dataset, std::unique_ptr<framework::Dataset>>(*m,
                                                                       "Dataset")
       .def(py::init([](const std::string& name = "MultiSlotDataset") {
         return framework::DatasetFactory::CreateDataset(name);

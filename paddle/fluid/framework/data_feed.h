@@ -25,6 +25,7 @@ limitations under the License. */
 #include <vector>
 
 #include "paddle/fluid/framework/blocking_queue.h"
+#include "paddle/fluid/framework/channel.h"
 #include "paddle/fluid/framework/data_feed.pb.h"
 #include "paddle/fluid/framework/fleet/fleet_wrapper.h"
 #include "paddle/fluid/framework/lod_tensor.h"
@@ -35,6 +36,8 @@ limitations under the License. */
 
 namespace paddle {
 namespace framework {
+
+class MultiSlotType;
 
 // DataFeed is the base virtual class for all ohther DataFeeds.
 // It is used to read files and parse the data for subsequent trainer.
@@ -99,6 +102,7 @@ class DataFeed {
   virtual void SetFileListMutex(std::mutex* mutex) {
     mutex_for_pick_file_ = mutex;
   }
+  virtual void SetInputChannel(paddle::framework::Channel<std::vector<MultiSlotType>> channel) {}
   virtual void SetFileListIndex(size_t* file_index) { file_idx_ = file_index; }
   virtual void LoadIntoMemory() {
     PADDLE_THROW("This function(LoadIntoMemory) is not implemented.");
@@ -230,6 +234,10 @@ class InMemoryDataFeed : public PrivateQueueDataFeed<T> {
   virtual int64_t GetChannelDataSize();
   virtual void ReleaseChannelData();
 
+  virtual void SetInputChannel(paddle::framework::Channel<T> channel) {
+    input_channel_ = channel;
+  }
+
  protected:
   virtual void AddInstanceToInsVec(T* vec_ins, const T& instance,
                                    int index) = 0;
@@ -252,6 +260,7 @@ class InMemoryDataFeed : public PrivateQueueDataFeed<T> {
   int cur_channel_;
   std::shared_ptr<paddle::framework::BlockingQueue<T>> shuffled_ins_;
   std::shared_ptr<paddle::framework::BlockingQueue<T>> shuffled_ins_out_;
+  paddle::framework::Channel<T> input_channel_;
   int64_t fleet_send_batch_size_;
   // sleep after send is to slow down sending data, but it's trick,
   // should be removed later.
@@ -346,6 +355,29 @@ class MultiSlotType {
   std::string type_;
   std::vector<size_t> offset_;
 };
+
+#ifdef PADDLE_WITH_PSLIB
+template <class AR>
+paddle::ps::Archive<AR>& operator<<(paddle::ps::Archive<AR>& ar,
+                                    const MultiSlotType& ins) {
+  ar << ins.GetType();
+  ar << ins.GetOffset();
+  ar << ins.GetFloatData();
+  ar << ins.GetUint64Data();
+  return ar;
+}
+
+template <class AR>
+paddle::ps::Archive<AR>& operator>>(paddle::ps::Archive<AR>& ar,
+                                    MultiSlotType& ins) {
+  ar >> ins.MutableType();
+  ar >> ins.MutableOffset();
+  ar >> ins.MutableFloatData();
+  ar >> ins.MutableUint64Data();
+  return ar;
+}
+#endif
+
 
 // This DataFeed is used to feed multi-slot type data.
 // The format of multi-slot type data:

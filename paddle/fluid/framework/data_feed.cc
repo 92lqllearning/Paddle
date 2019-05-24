@@ -314,7 +314,7 @@ template <typename T>
 void InMemoryDataFeed<T>::LoadIntoMemory() {
 #ifdef _LINUX
   VLOG(3) << "LoadIntoMemory() begin, thread_id=" << thread_id_;
-  std::vector<T> local_vec;
+//  std::vector<T> local_vec;
   std::string filename;
   while (DataFeed::PickOneFile(&filename)) {
     VLOG(3) << "PickOneFile, filename=" << filename
@@ -328,25 +328,31 @@ void InMemoryDataFeed<T>::LoadIntoMemory() {
     platform::Timer timeline;
     timeline.Start();
     while (ParseOneInstanceFromPipe(&instance)) {
-      local_vec.push_back(instance);
+      input_channel_->put(std::move(instance));
+     // local_vec.push_back(instance);
     }
+    // set null after load
+    input_channel_ = nullptr;
+
     timeline.Pause();
-    VLOG(3) << "LoadIntoMemory() read all lines, file=" << filename
+    VLOG(0) << "LoadIntoMemory() read all lines, file=" << filename
             << ", cost time=" << timeline.ElapsedSec()
             << " seconds, thread_id=" << thread_id_;
-    {
+/*    {
       std::lock_guard<std::mutex> lock(*mutex_for_update_memory_data_);
       timeline.Start();
-      memory_data_->insert(memory_data_->end(),
-                           std::make_move_iterator(local_vec.begin()),
-                           std::make_move_iterator(local_vec.end()));
+      memory_data_->insert(memory_data_->end(), local_vec.begin(),
+                           local_vec.end());
       timeline.Pause();
       VLOG(3) << "LoadIntoMemory() memory_data insert, cost time="
               << timeline.ElapsedSec() << " seconds, thread_id=" << thread_id_;
     }
     local_vec.clear();
+    //std::vector<T>().swap(local_vec);
   }
   std::vector<T>().swap(local_vec);
+  */
+}
   VLOG(3) << "LoadIntoMemory() end, thread_id=" << thread_id_;
 #endif
 }
@@ -363,6 +369,48 @@ void InMemoryDataFeed<T>::LocalShuffle() {
 template <typename T>
 void InMemoryDataFeed<T>::GlobalShuffle() {
 #ifdef _LINUX
+ VLOG(0) << "InMemoryDataFeed<T>::GlobalShuffle begin";
+  auto fleet_ptr = FleetWrapper::GetInstance();
+  std::vector<paddle::ps::BinaryArchive> ars(trainer_num_);
+  std::vector<T> data;
+  while (input_channel_->read(data)) {
+      VLOG(0) << "input_channel_->read(data)";
+    for (auto& t : data) {
+      auto client_id = fleet_ptr->LocalRandomEngine()() % trainer_num_;
+      ars[client_id] << t;
+    }
+
+    std::vector<std::future<int32_t>> total_status;
+    std::vector<int> send_index(trainer_num_);
+    for (int i = 0; i < trainer_num_; ++i) {
+      send_index[i] = i;
+    }
+    std::shuffle(send_index.begin(), send_index.end(), fleet_ptr->LocalRandomEngine());
+
+    for (auto index = 0u; index < trainer_num_; ++index) {
+      int i = send_index[index];
+      if (ars[i].length() == 0) {
+        continue;
+      }
+      std::string msg(ars[i].buffer(), ars[i].length());
+      auto ret = fleet_ptr->SendClientToClientMsg(0, i, msg);
+      total_status.push_back(std::move(ret));
+    }
+
+    for (auto& t : total_status) {
+      t.wait();
+    }
+    
+    ars.clear();
+    ars = std::vector<paddle::ps::BinaryArchive>(trainer_num_);
+    data = std::vector<T>();
+
+    sleep(fleet_send_sleep_seconds_);
+
+  }
+
+
+/*
   VLOG(3) << "GlobalShuffle() begin, thread_id=" << thread_id_;
   auto fleet_ptr = FleetWrapper::GetInstance();
   std::vector<std::vector<T*>> send_vec(trainer_num_);
@@ -376,7 +424,7 @@ void InMemoryDataFeed<T>::GlobalShuffle() {
   }
   std::vector<std::future<int32_t>> total_status;
   auto interval = GetMemoryDataInterval();
-  VLOG(3) << "global shuffle data from  [" << interval.first << ", "
+  VLOG(0) << "global shuffle data from  [" << interval.first << ", "
           << interval.second << "), thread_id=" << thread_id_;
 
   for (int64_t i = interval.first; i < interval.second;
@@ -407,7 +455,9 @@ void InMemoryDataFeed<T>::GlobalShuffle() {
     sleep(fleet_send_sleep_seconds_);
   }
   VLOG(3) << "GlobalShuffle() end, thread_id=" << thread_id_;
+  */
 #endif
+
 }
 
 template <typename T>
