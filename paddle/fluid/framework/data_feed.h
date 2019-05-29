@@ -102,7 +102,10 @@ class DataFeed {
   virtual void SetFileListMutex(std::mutex* mutex) {
     mutex_for_pick_file_ = mutex;
   }
-  virtual void SetInputChannel(paddle::framework::Channel<std::vector<MultiSlotType>> channel) {}
+  virtual void SetInputChannel(paddle::framework::ChannelObject<std::vector<MultiSlotType>>* channel) {}
+  virtual void SetOutputChannel(paddle::framework::ChannelObject<std::vector<MultiSlotType>>* channel) {}
+  virtual void SetOutputConsumeChannel(paddle::framework::ChannelObject<std::vector<MultiSlotType>>* channel) {}
+//  virtual void SetCurChannel(int cur) {}
   virtual void SetFileListIndex(size_t* file_index) { file_idx_ = file_index; }
   virtual void LoadIntoMemory() {
     PADDLE_THROW("This function(LoadIntoMemory) is not implemented.");
@@ -234,9 +237,21 @@ class InMemoryDataFeed : public PrivateQueueDataFeed<T> {
   virtual int64_t GetChannelDataSize();
   virtual void ReleaseChannelData();
 
-  virtual void SetInputChannel(paddle::framework::Channel<T> channel) {
+  virtual void SetInputChannel(paddle::framework::ChannelObject<T>* channel) {
     input_channel_ = channel;
   }
+
+  virtual void SetOutputChannel(paddle::framework::ChannelObject<T>* channel) {
+    output_channel_ = channel;
+  }
+
+  virtual void SetOutputConsumeChannel(paddle::framework::ChannelObject<T>* channel) {
+    output_consume_channel_ = channel;
+  }
+
+//  virtual void SetCurChannel(int cur) {
+//    cur_channel_ = cur;
+//  }
 
  protected:
   virtual void AddInstanceToInsVec(T* vec_ins, const T& instance,
@@ -260,7 +275,12 @@ class InMemoryDataFeed : public PrivateQueueDataFeed<T> {
   int cur_channel_;
   std::shared_ptr<paddle::framework::BlockingQueue<T>> shuffled_ins_;
   std::shared_ptr<paddle::framework::BlockingQueue<T>> shuffled_ins_out_;
-  paddle::framework::Channel<T> input_channel_;
+//  paddle::framework::Channel<T> input_channel_;
+  paddle::framework::ChannelObject<T>* input_channel_;
+//  paddle::framework::Channel<T> output_channel_;
+  paddle::framework::ChannelObject<T>* output_channel_;
+//  paddle::framework::Channel<T> output_consume_channel_;
+  paddle::framework::ChannelObject<T>* output_consume_channel_;
   int64_t fleet_send_batch_size_;
   // sleep after send is to slow down sending data, but it's trick,
   // should be removed later.
@@ -310,11 +330,11 @@ class MultiSlotType {
       uint64_feasign_.insert(uint64_feasign_.end(), vec.begin(), vec.end());
     }
   }
-  const std::vector<float>& GetFloatData() const { return float_feasign_; }
+  const std::vector<float>  GetFloatData() const { return float_feasign_; }
   std::vector<float>& MutableFloatData() { return float_feasign_; }
-  const std::vector<uint64_t>& GetUint64Data() const { return uint64_feasign_; }
+  const std::vector<uint64_t> GetUint64Data() const { return uint64_feasign_; }
   std::vector<uint64_t>& MutableUint64Data() { return uint64_feasign_; }
-  const std::string& GetType() const { return type_; }
+  const std::string GetType() const { return type_; }
   std::string& MutableType() { return type_; }
 
   std::string DebugString() {
@@ -339,7 +359,7 @@ class MultiSlotType {
     return ss.str();
   }
 
- private:
+// private:
   void CheckType(const std::string& type) const {
     PADDLE_ENFORCE((type == "uint64") || (type == "float"),
                    "There is no this type<%s>.", type);
@@ -360,20 +380,49 @@ class MultiSlotType {
 template <class AR>
 paddle::ps::Archive<AR>& operator<<(paddle::ps::Archive<AR>& ar,
                                     const MultiSlotType& ins) {
-  ar << ins.GetType();
-  ar << ins.GetOffset();
-  ar << ins.GetFloatData();
-  ar << ins.GetUint64Data();
+// VLOG(0) << "my operator<<";
+  ar << ins.type_;
+  ar << (size_t)ins.offset_.size();
+  for (size_t i = 0; i < ins.offset_.size(); ++i) {
+    ar << ins.offset_[i];
+  }
+  ar << (size_t)ins.float_feasign_.size();
+  for (size_t i = 0; i < ins.float_feasign_.size(); ++i) {
+    ar << ins.float_feasign_[i];
+  }
+  ar << (size_t)ins.uint64_feasign_.size();
+  for (size_t i = 0; i < ins.uint64_feasign_.size(); ++i) {
+    ar << ins.uint64_feasign_[i];
+  }
+//  ar << ins.GetType();
+//  ar << ins.GetOffset();
+//  ar << ins.GetFloatData();
+//  ar << ins.GetUint64Data();
   return ar;
 }
 
 template <class AR>
 paddle::ps::Archive<AR>& operator>>(paddle::ps::Archive<AR>& ar,
                                     MultiSlotType& ins) {
-  ar >> ins.MutableType();
-  ar >> ins.MutableOffset();
-  ar >> ins.MutableFloatData();
-  ar >> ins.MutableUint64Data();
+//VLOG(0) << "my operator>>";
+//  ar >> ins.MutableType();
+//  ar >> ins.MutableOffset();
+//  ar >> ins.MutableFloatData();
+//  ar >> ins.MutableUint64Data();
+  ar >> ins.type_;
+//  ar >> (size_t)ins.offset_.size();
+  ins.offset_.resize(ar.template get<size_t>());
+  for (size_t i = 0; i < ins.offset_.size(); ++i) {
+    ar >> ins.offset_[i];
+  }
+  ins.float_feasign_.resize(ar.template get<size_t>());
+  for (size_t i = 0; i < ins.float_feasign_.size(); ++i) {
+    ar >> ins.float_feasign_[i];
+  }
+  ins.uint64_feasign_.resize(ar.template get<size_t>());
+  for (size_t i = 0; i < ins.uint64_feasign_.size(); ++i) {
+    ar >> ins.uint64_feasign_[i];
+  }
   return ar;
 }
 #endif
@@ -405,7 +454,9 @@ class MultiSlotInMemoryDataFeed
     : public InMemoryDataFeed<std::vector<MultiSlotType>> {
  public:
   MultiSlotInMemoryDataFeed() {}
-  virtual ~MultiSlotInMemoryDataFeed() {}
+  virtual ~MultiSlotInMemoryDataFeed() {
+  VLOG(0) << "call MultiSlotInMemoryDataFeed destructor";
+  }
   virtual void Init(const paddle::framework::DataFeedDesc& data_feed_desc);
 
  protected:

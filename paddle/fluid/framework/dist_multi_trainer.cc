@@ -23,13 +23,45 @@ namespace paddle {
 namespace framework {
 
 void DistMultiTrainer::Initialize(const TrainerDesc& trainer_desc,
-                                  Dataset* dataset) {
+                                  Dataset* dataset_ptr) {
   thread_num_ = trainer_desc.thread_num();
   SetDataset(dataset);
 
-  dataset->CreateReaders();
-  const std::vector<std::shared_ptr<paddle::framework::DataFeed>> readers =
-      dataset->GetReaders();
+//  dataset->CreateReaders();
+//  const std::vector<std::shared_ptr<paddle::framework::DataFeed>> readers =
+  
+/*  dataset_ = std::make_shared<paddle::framework::MultiSlotDataset>();
+
+  dataset_->SetThreadNum(12);
+  dataset_->SetHdfsConfig("afs://xingtian.afs.baidu.com:9902","mlarch,Fv1M87");
+  dataset_->SetFileList(std::vector<std::string>{
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00000.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00001.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00002.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00003.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00004.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00005.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00006.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00007.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00008.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00009.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00010.gz",
+          "afs:/user/feed/mlarch/sequence_generator/heqiaozhi/feasign/20180920/00/part-00011.gz"
+          });
+
+  std::string f = "/home/disk6/xujiaqi/mycode/paddle_fkfkfk/Paddle/build_withoutpslib/paddle/fluid/framework/data_feed.prottxt";
+  std::ifstream t(f);
+  std::stringstream buffer;
+  buffer << t.rdbuf();
+  std::string contents(buffer.str());
+  dataset_->SetDataFeedDesc(contents);
+  
+  dataset_->SetFleetSendBatchSize(800);
+
+  dataset_->LoadIntoMemory();
+*/ 
+  const std::vector<paddle::framework::DataFeed*> readers =
+      dataset_->GetReaders();
 
   thread_num_ = readers.size();
   workers_.resize(thread_num_);
@@ -72,7 +104,7 @@ void DistMultiTrainer::Finalize() {
     th.join();
   }
   pull_dense_worker_->Stop();
-  dataset_ptr_->DestroyReaders();
+//  dataset_ptr_->DestroyReaders();
   root_scope_->DropKids();
 }
 

@@ -23,7 +23,7 @@ namespace framework {
 class DataFeedFactory {
  public:
   static std::string DataFeedTypeList();
-  static std::shared_ptr<DataFeed> CreateDataFeed(std::string data_feed_class);
+  static std::unique_ptr<DataFeed> CreateDataFeed(std::string data_feed_class);
 };
 }  // namespace framework
 }  // namespace paddle

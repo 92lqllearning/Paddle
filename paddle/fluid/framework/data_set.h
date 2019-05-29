@@ -69,7 +69,7 @@ class Dataset {
   virtual const paddle::framework::DataFeedDesc& GetDataFeedDesc() = 0;
   // get readers, the reader num depend both on thread num
   // and filelist size
-  virtual std::vector<std::shared_ptr<paddle::framework::DataFeed>>&
+  virtual std::vector<paddle::framework::DataFeed*>
   GetReaders() = 0;
   // register message handler between workers
   virtual void RegisterClientToClientMsgHandler() = 0;
@@ -121,7 +121,7 @@ class DatasetImpl : public Dataset {
   virtual const paddle::framework::DataFeedDesc& GetDataFeedDesc() {
     return data_feed_desc_;
   }
-  virtual std::vector<std::shared_ptr<paddle::framework::DataFeed>>&
+  virtual std::vector<paddle::framework::DataFeed*>
   GetReaders();
 
   virtual void RegisterClientToClientMsgHandler();
@@ -141,6 +141,7 @@ class DatasetImpl : public Dataset {
   std::vector<T> memory_data_;
   paddle::framework::Channel<T> input_channel_;
   std::vector<paddle::framework::Channel<T>> output_channel_vec_;
+  std::vector<paddle::framework::Channel<T>> output_consume_channel_vec_;
   std::mutex mutex_for_update_memory_data_;
   int thread_num_;
   paddle::framework::DataFeedDesc data_feed_desc_;
@@ -152,6 +153,8 @@ class DatasetImpl : public Dataset {
   std::string fs_ugi_;
   unsigned int rand_seed;
   int64_t fleet_send_batch_size_;
+  int cur_channel_;
+//  int tmpflag = 0;
 };
 
 // use std::vector<MultiSlotType> as data type

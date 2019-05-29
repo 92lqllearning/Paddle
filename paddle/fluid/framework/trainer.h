@@ -89,6 +89,7 @@ class DistMultiTrainer : public MultiTrainer {
 
  protected:
   std::shared_ptr<paddle::framework::PullDenseWorker> pull_dense_worker_;
+  //std::shared_ptr<paddle::framework::Dataset> dataset_;
 };
 
 }  // namespace framework

@@ -193,6 +193,9 @@ class DatasetBase(object):
         Set data_feed_desc before load or shuffle,
         user no need to call this function.
         """
+        f = open("data_feed.prototxt", "w")
+        f.write(self.desc())
+        f.close()
         self.dataset.set_data_feed_desc(self.desc())
 
     def desc(self):
@@ -390,6 +393,13 @@ class InMemoryDataset(DatasetBase):
                                                         global_data_size)
             return global_data_size[0]
         return local_data_size[0]
+
+    def create_readers(self):
+        self._prepare_to_run()
+        self.dataset.create_readers()
+
+    def destroy_readers(self):
+        self.dataset.destroy_readers()
 
 
 class QueueDataset(DatasetBase):

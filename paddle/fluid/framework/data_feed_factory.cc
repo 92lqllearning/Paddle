@@ -21,14 +21,14 @@ limitations under the License. */
 
 namespace paddle {
 namespace framework {
-typedef std::shared_ptr<DataFeed> (*Createdata_feedFunction)();
+typedef std::unique_ptr<DataFeed> (*Createdata_feedFunction)();
 typedef std::unordered_map<std::string, Createdata_feedFunction> data_feedMap;
 data_feedMap g_data_feed_map;
 
 #define REGISTER_DATAFEED_CLASS(data_feed_class)                      \
   namespace {                                                         \
-  std::shared_ptr<DataFeed> Creator_##data_feed_class() {             \
-    return std::shared_ptr<DataFeed>(new data_feed_class);            \
+  std::unique_ptr<DataFeed> Creator_##data_feed_class() {             \
+    return std::unique_ptr<DataFeed>(new data_feed_class);            \
   }                                                                   \
   class __Registerer_##data_feed_class {                              \
    public:                                                            \
@@ -51,7 +51,7 @@ std::string DataFeedFactory::DataFeedTypeList() {
   return data_feed_types;
 }
 
-std::shared_ptr<DataFeed> DataFeedFactory::CreateDataFeed(
+std::unique_ptr<DataFeed> DataFeedFactory::CreateDataFeed(
     std::string data_feed_class) {
   if (g_data_feed_map.count(data_feed_class) < 1) {
     LOG(WARNING) << "Your DataFeed " << data_feed_class

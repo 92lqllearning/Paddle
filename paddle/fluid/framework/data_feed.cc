@@ -151,8 +151,8 @@ template class PrivateQueueDataFeed<std::vector<MultiSlotType>>;
 template <typename T>
 InMemoryDataFeed<T>::InMemoryDataFeed() {
   cur_channel_ = 0;
-  shuffled_ins_ = std::make_shared<paddle::framework::BlockingQueue<T>>();
-  shuffled_ins_out_ = std::make_shared<paddle::framework::BlockingQueue<T>>();
+  shuffled_ins_ = nullptr;//std::make_shared<paddle::framework::BlockingQueue<T>>();
+  shuffled_ins_out_ = nullptr;//std::make_shared<paddle::framework::BlockingQueue<T>>();
   fleet_send_batch_size_ = 80000;  // hard code here
   memory_data_ = nullptr;
   mutex_for_update_memory_data_ = nullptr;
@@ -165,9 +165,17 @@ template <typename T>
 bool InMemoryDataFeed<T>::Start() {
 #ifdef _LINUX
   DataFeed::CheckSetFileList();
-  if (shuffled_ins_->Size() == 0 && shuffled_ins_out_->Size() == 0) {
-    FillMemoryDataToChannel();
-  }
+//  if (shuffled_ins_->Size() == 0 && shuffled_ins_out_->Size() == 0) {
+//    FillMemoryDataToChannel();
+//  }
+ if (output_channel_->size() == 0) {
+    std::vector<T> data;
+    input_channel_->read(data);
+    output_channel_->write(std::move(data));
+    int pid = (int)getpid();
+    VLOG(0) << "InMemoryDataFeed<T>::Start() fill input to output size " << data.size()
+        << " " << shell_get_command_output(std::string("cat /proc/") + std::to_string(pid) + "/status | grep VmRSS");; 
+ }
 #endif
   DataFeed::finish_start_ = true;
   return true;
@@ -177,31 +185,37 @@ template <typename T>
 int InMemoryDataFeed<T>::Next() {
 #ifdef _LINUX
   DataFeed::CheckStart();
-  std::shared_ptr<paddle::framework::BlockingQueue<T>> in_channel = nullptr;
-  std::shared_ptr<paddle::framework::BlockingQueue<T>> out_channel = nullptr;
+//  std::shared_ptr<paddle::framework::BlockingQueue<T>> in_channel = nullptr;
+//  std::shared_ptr<paddle::framework::BlockingQueue<T>> out_channel = nullptr;
+  paddle::framework::ChannelObject<T>* out_channel = nullptr;
+  paddle::framework::ChannelObject<T>* out_consume_channel = nullptr;
   if (cur_channel_ == 0) {
-    in_channel = shuffled_ins_;
-    out_channel = shuffled_ins_out_;
+//    in_channel = shuffled_ins_;
+//    out_channel = shuffled_ins_out_;
+    out_channel = output_channel_;
+    out_consume_channel = output_consume_channel_;
   } else {
-    in_channel = shuffled_ins_out_;
-    out_channel = shuffled_ins_;
+//    in_channel = shuffled_ins_out_;
+//    out_channel = shuffled_ins_;
+    out_channel = output_consume_channel_;
+    out_consume_channel = output_channel_;
   }
-  CHECK(in_channel != nullptr);
   CHECK(out_channel != nullptr);
-  VLOG(3) << "in_channel size=" << in_channel->Size()
-          << ", out_channel size=" << out_channel->Size()
+  CHECK(out_consume_channel != nullptr);
+  VLOG(3) << "in_channel size=" << out_channel->size()
+          << ", out_channel size=" << out_consume_channel->size()
           << ", thread_id=" << thread_id_;
   int index = 0;
   T instance;
   T ins_vec;
   while (index < DataFeed::default_batch_size_) {
-    if (in_channel->Size() == 0) {
+    if (out_channel->size() == 0) {
       break;
     }
-    in_channel->Pop(&instance);
+    out_channel->get(instance);
 
     AddInstanceToInsVec(&ins_vec, instance, index++);
-    out_channel->Push(std::move(instance));
+    out_consume_channel->put(std::move(instance));
   }
   DataFeed::batch_size_ = index;
   VLOG(3) << "batch_size_=" << DataFeed::batch_size_
@@ -209,7 +223,7 @@ int InMemoryDataFeed<T>::Next() {
   if (DataFeed::batch_size_ != 0) {
     PutToFeedVec(ins_vec);
   } else {
-    cur_channel_ = 1 - cur_channel_;
+//    cur_channel_ = 1 - cur_channel_;
   }
   return DataFeed::batch_size_;
 #else
@@ -250,32 +264,34 @@ void InMemoryDataFeed<T>::SetFleetSendBatchSize(int64_t size) {
 template <typename T>
 void InMemoryDataFeed<T>::PutInsToChannel(const std::string& ins_str) {
 #ifdef _LINUX
-  std::vector<T> ins;
-  DeserializeIns(&ins, ins_str);
-  shuffled_ins_->Extend(std::move(ins));
-  VLOG(3) << "PutInsToChannel put ins num=" << ins.size()
-          << " to channel, channel size=" << shuffled_ins_->Size()
-          << " thread_id=" << thread_id_;
+//  std::vector<T> ins;
+//  DeserializeIns(&ins, ins_str);
+//  shuffled_ins_->Extend(std::move(ins));
+//  VLOG(3) << "PutInsToChannel put ins num=" << ins.size()
+//          << " to channel, channel size=" << shuffled_ins_->Size()
+//          << " thread_id=" << thread_id_;
 #endif
 }
 
 template <typename T>
 void InMemoryDataFeed<T>::FillMemoryDataToChannel() {
 #ifdef _LINUX
-  VLOG(3) << "FillMemoryDataToChannel, thread_id=" << thread_id_;
-  auto interval = GetMemoryDataInterval();
-  VLOG(3) << "memory data size=" << memory_data_->size()
-          << ", fill data from  [" << interval.first << ", " << interval.second
-          << "), thread_id=" << thread_id_;
-  for (int64_t i = interval.first; i < interval.second; ++i) {
-    T& t = (*memory_data_)[i];
-    shuffled_ins_->Push(std::move(t));
-  }
+//  VLOG(3) << "FillMemoryDataToChannel, thread_id=" << thread_id_;
+//  auto interval = GetMemoryDataInterval();
+//  VLOG(3) << "memory data size=" << memory_data_->size()
+//          << ", fill data from  [" << interval.first << ", " << interval.second
+//          << "), thread_id=" << thread_id_;
+//  for (int64_t i = interval.first; i < interval.second; ++i) {
+//    T& t = (*memory_data_)[i];
+//    shuffled_ins_->Push(std::move(t));
+//  }
 #endif
 }
 
 template <typename T>
 void InMemoryDataFeed<T>::FillChannelToMemoryData() {
+    return;
+    /*
 #ifdef _LINUX
   VLOG(3) << "FillChannelToMemoryData, thread_id=" << thread_id_;
   std::vector<T> local_vec;
@@ -308,6 +324,7 @@ void InMemoryDataFeed<T>::FillChannelToMemoryData() {
   }
   std::vector<T>().swap(local_vec);
 #endif
+*/
 }
 
 template <typename T>
@@ -328,14 +345,18 @@ void InMemoryDataFeed<T>::LoadIntoMemory() {
     platform::Timer timeline;
     timeline.Start();
     while (ParseOneInstanceFromPipe(&instance)) {
-      input_channel_->put(std::move(instance));
+        input_channel_->put(instance);
+      //input_channel_->put(std::move(instance));
+//      instance.clear();
+//      T().swap(instance);
+//      instance = T();
      // local_vec.push_back(instance);
     }
     // set null after load
-    input_channel_ = nullptr;
+//    input_channel_ = nullptr;
 
     timeline.Pause();
-    VLOG(0) << "LoadIntoMemory() read all lines, file=" << filename
+    VLOG(3) << "LoadIntoMemory() read all lines, file=" << filename
             << ", cost time=" << timeline.ElapsedSec()
             << " seconds, thread_id=" << thread_id_;
 /*    {
@@ -476,20 +497,21 @@ std::pair<int64_t, int64_t> InMemoryDataFeed<T>::GetMemoryDataInterval() {
 
 template <typename T>
 int64_t InMemoryDataFeed<T>::GetChannelDataSize() {
-  if (cur_channel_ == 0) {
-    return shuffled_ins_->Size();
-  } else {
-    return shuffled_ins_out_->Size();
-  }
+//  if (cur_channel_ == 0) {
+//    return shuffled_ins_->Size();
+//  } else {
+//    return shuffled_ins_out_->Size();
+//  }
+  return  output_channel_->size() + output_consume_channel_->size();
 }
 
 template <typename T>
 void InMemoryDataFeed<T>::ReleaseChannelData() {
-  if (cur_channel_ == 0) {
-    shuffled_ins_->Clear();
-  } else {
-    shuffled_ins_out_->Clear();
-  }
+//  if (cur_channel_ == 0) {
+//    shuffled_ins_->Clear();
+//  } else {
+//    shuffled_ins_out_->Clear();
+//  }
 }
 
 // explicit instantiation
@@ -891,7 +913,7 @@ void MultiSlotInMemoryDataFeed::Init(
 bool MultiSlotInMemoryDataFeed::ParseOneInstanceFromPipe(
     std::vector<MultiSlotType>* instance) {
 #ifdef _LINUX
-  thread_local string::LineFileReader reader;
+ /* thread_local*/ string::LineFileReader reader;
 
   if (!reader.getline(&*(fp_.get()))) {
     return false;

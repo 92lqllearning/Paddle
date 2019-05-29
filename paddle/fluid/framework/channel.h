@@ -37,16 +37,26 @@ class ChannelObject {
 public:
     ChannelObject() {
     }
+    virtual ~ChannelObject() {
+    VLOG(0) << "call channel destructor";
+    my_clear();
+    }
     explicit ChannelObject(size_t capacity) { // capacity can be zero
         _capacity = std::min(max_capacity(), capacity);
     }
 
     void my_clear() {
         std::unique_lock<std::mutex> lock(_mutex);
-        VLOG(0) << "before my_clear size=" <<  _data.size();
+        VLOG(0) << "before my_clear pop  size=" <<  _data.size();
+
+        while(_data.size() != 0) {
+            _data.pop_back();
+        }
+
         _data.clear();
+        //_data.swap(std::deque<T>());
         std::deque<T>().swap(_data);
-        VLOG(0) << "before my_clear size=" <<  _data.size();
+        VLOG(0) << "after my_clear size=" <<  _data.size();
     }
 
     size_t capacity() {
