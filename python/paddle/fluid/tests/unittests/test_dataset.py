@@ -228,18 +228,49 @@ class TestDataset(unittest.TestCase):
         for i in range(2):
             try:
                 exe.train_from_dataset(fluid.default_main_program(), dataset)
+
+        for i in range(2):
+            try:
+                exe.train_from_dataset(fluid.default_main_program(), dataset)
+                exe.train_from_dataset(
+                    fluid.default_main_program(), dataset, thread=1)
+                exe.train_from_dataset(
+                    fluid.default_main_program(), dataset, thread=2)
+                exe.train_from_dataset(
+                    fluid.default_main_program(), dataset, thread=2)
+                exe.train_from_dataset(
+                    fluid.default_main_program(), dataset, thread=3)
+                exe.train_from_dataset(
+                    fluid.default_main_program(), dataset, thread=4)
             except ImportError as e:
                 pass
             except Exception as e:
                 self.assertTrue(False)
 
+        if self.use_data_loader:
+            data_loader = fluid.io.DataLoader.from_dataset(dataset,
+                                                           fluid.cpu_places(),
+                                                           self.drop_last)
+            for i in range(self.epoch_num):
+                for data in data_loader():
+                    exe.run(fluid.default_main_program(), feed=data)
+        else:
+            for i in range(self.epoch_num):
+                try:
+                    exe.train_from_dataset(fluid.default_main_program(),
+                                           dataset)
+                except Exception as e:
+                    self.assertTrue(False)
+
         dataset.set_merge_by_lineid(slots_vars)
+        dataset.set_fleet_send_sleep_seconds(2)
         dataset.preload_into_memory()
         dataset.wait_preload_done()
         dataset.release_memory()
         dataset.preload_into_memory(1)
         dataset.wait_preload_done()
         fleet_ptr = fluid.core.Fleet()
+        fleet_ptr.set_client2client_config(1, 1, 1)
 
         os.remove("./test_in_memory_dataset_run_a.txt")
         os.remove("./test_in_memory_dataset_run_b.txt")
@@ -284,6 +315,19 @@ class TestDataset(unittest.TestCase):
                 pass
             except Exception as e:
                 self.assertTrue(False)
+
+        dataset2 = fluid.DatasetFactory().create_dataset("QueueDataset")
+        dataset2.set_use_var(slots_vars)
+        dataset2.set_batch_size(32)
+        dataset2.set_thread(3)
+        dataset2.set_pipe_command("cat")
+        dataset.set_filelist([])
+        try:
+            exe.train_from_dataset(fluid.default_main_program(), dataset2)
+        except ImportError as e:
+            print("warning: we skip trainer_desc_pb2 import problem in windows")
+        except Exception as e:
+            self.assertTrue(False)
 
         os.remove("./test_queue_dataset_run_a.txt")
         os.remove("./test_queue_dataset_run_b.txt")
