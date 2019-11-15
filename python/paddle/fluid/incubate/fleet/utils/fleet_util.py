@@ -559,7 +559,8 @@ class FleetUtil(object):
                              hadoop_fs_name,
                              hadoop_fs_ugi,
                              hadoop_home="$HADOOP_HOME",
-                             donefile_name="sparse_cache.meta"):
+                             donefile_name="sparse_cache.meta",
+                             **kwargs):
         """
         write cache donefile
 
@@ -572,6 +573,9 @@ class FleetUtil(object):
             hadoop_fs_ugi(str): hdfs/afs fs ugi
             hadoop_home(str): hadoop home, default is "$HADOOP_HOME"
             donefile_name(str): donefile name, default is "sparse_cache.meta"
+            kwargs(dict): user defined properties
+                          file_num(int): cache file num
+                          table_id(int): cache table id
 
         Examples:
             .. code-block:: python
@@ -591,12 +595,14 @@ class FleetUtil(object):
         day = str(day)
         pass_id = str(pass_id)
         key_num = int(key_num)
+        file_num = kwargs.get("file_num", 16)
+        table_id = kwargs.get("table_id", 0)
 
         if pass_id != "-1":
-            suffix_name = "/%s/delta-%s/000_cache" % (day, pass_id)
+            suffix_name = "/%s/delta-%s/%03d_cache" % (day, pass_id, table_id)
             model_path = output_path.rstrip("/") + suffix_name
         else:
-            suffix_name = "/%s/base/000_cache" % day
+            suffix_name = "/%s/base/%03d_cache" % (day, table_id)
             model_path = output_path.rstrip("/") + suffix_name
 
         if fleet.worker_index() == 0:
@@ -610,8 +616,8 @@ class FleetUtil(object):
                 self.rank0_error( \
                     "not write because %s already exists" % donefile_path)
             else:
-                meta_str = \
-                    "file_prefix:part\npart_num:16\nkey_num:%d\n" % key_num
+                meta_str = "file_prefix:part\npart_num:%s\nkey_num:%d\n" \
+                           % (file_num, key_num)
                 with open(donefile_name, "w") as f:
                     f.write(meta_str)
                 client.upload(
@@ -743,7 +749,7 @@ class FleetUtil(object):
         fleet.save_persistables(None, model_path, mode=2)
         self.rank0_print("save_xbox_base_model done")
 
-    def save_cache_model(self, output_path, day, pass_id, mode=1):
+    def save_cache_model(self, output_path, day, pass_id, mode=1, **kwargs):
         """
         save cache model
 
@@ -752,6 +758,8 @@ class FleetUtil(object):
             day(str|int): training day
             pass_id(str|int): training pass id
             mode(str|int): save mode
+            kwargs(dict): user defined properties
+                          table_id(int): table id to save cache
 
         Returns:
             key_num(int): cache key num
@@ -767,14 +775,16 @@ class FleetUtil(object):
         day = str(day)
         pass_id = str(pass_id)
         mode = int(mode)
+        table_id = kwargs.get("table_id", 0)
         suffix_name = "/%s/delta-%s" % (day, pass_id)
         model_path = output_path.rstrip("/") + suffix_name
         self.rank0_print("going to save_cache_model %s" % model_path)
-        key_num = fleet.save_cache_model(None, model_path, mode=mode)
+        key_num = fleet.save_cache_model(
+            None, model_path, mode=mode, table_id=table_id)
         self.rank0_print("save_cache_model done")
         return key_num
 
-    def save_cache_base_model(self, output_path, day):
+    def save_cache_base_model(self, output_path, day, **kwargs):
         """
         save cache model
 
@@ -782,6 +792,8 @@ class FleetUtil(object):
             output_path(str): output path
             day(str|int): training day
             pass_id(str|int): training pass id
+            kwargs(dict): user defined properties
+                          table_id(int): table id to save cache
 
         Returns:
             key_num(int): cache key num
@@ -795,10 +807,12 @@ class FleetUtil(object):
 
         """
         day = str(day)
+        table_id = kwargs.get("table_id", 0)
         suffix_name = "/%s/base" % day
         model_path = output_path.rstrip("/") + suffix_name
         self.rank0_print("going to save_cache_base_model %s" % model_path)
-        key_num = fleet.save_cache_model(None, model_path, mode=2)
+        key_num = fleet.save_cache_model(
+            None, model_path, mode=2, table_id=table_id)
         self.rank0_print("save_cache_base_model done")
         return key_num
 
