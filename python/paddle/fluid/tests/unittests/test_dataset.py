@@ -478,7 +478,14 @@ class TestDataset(unittest.TestCase):
 
 
 class TestDatasetWithDataLoader(TestDataset):
+    """
+    Test Dataset With Data Loader class. TestCases.
+    """
+
     def setUp(self):
+        """
+        Test Dataset With Data Loader, setUp.
+        """
         self.use_data_loader = True
         self.epoch_num = 10
         self.drop_last = False
