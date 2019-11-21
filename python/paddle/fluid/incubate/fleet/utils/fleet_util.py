@@ -844,6 +844,95 @@ class FleetUtil(object):
                                             int(table.table_id), var_name_list)
         fleet._role_maker._barrier_worker()
 
+    def save_paddle_inference_model(self,
+                                    executor,
+                                    scope,
+                                    program,
+                                    feeded_vars,
+                                    target_vars,
+                                    output_path,
+                                    day,
+                                    pass_id,
+                                    hadoop_fs_name,
+                                    hadoop_fs_ugi,
+                                    hadoop_home="$HADOOP_HOME",
+                                    save_combine=True):
+        """
+        save paddle inference model, and upload to hdfs dnn_plugin path
+
+        Args:
+            executor(Executor): fluid Executor
+            scope(Scope): fluid Scope
+            program(Program): fluid Program
+            feeded_vars(list[Variable]): feed vars
+            target_vars(list[variable]): fetch vars
+            output_path(str): hdfs/afs output path
+            day(str|int): training day
+            pass_id(str|int): training pass
+            hadoop_fs_name(str): hadoop fs name
+            hadoop_fs_ugi(str): hadoop fs ugi
+            hadoop_home(str): hadoop home, default is "$HADOOP_HOME"
+            save_combine(bool): whether to save in a file or seperate files,
+                                default is True
+
+        Examples:
+            .. code-block:: python
+
+              from paddle.fluid.incubate.fleet.utils.fleet_util import FleetUtil
+              fleet_util = FleetUtil()
+              fleet_util.save_paddle_inference_model(exe,
+                                                     join_scope,
+                                                     join_program,
+                                                     feeded_vars,
+                                                     target_vars,
+                                                     "hdfs:/my/output/path/",
+                                                     day=20190727,
+                                                     pass_id=6,
+                                                     hadoop_fs_name="xxx",
+                                                     hadoop_fs_ugi="xxx,xxx")
+        """
+        day = str(day)
+        pass_id = str(pass_id)
+        feeded_var_names = [i.name for i in feeded_vars]
+        model_name = "inference_model"
+        # pull dense before save
+        self.pull_all_dense_params(scope, program)
+        if fleet.worker_index() == 0:
+            with fluid.scope_guard(scope):
+                if save_combine:
+                    fluid.io.save_inference_model(
+                        dirname=model_name,
+                        feeded_var_names=feeded_var_names,
+                        target_vars=target_vars,
+                        executor=executor,
+                        main_program=program,
+                        params_filename="params")
+                else:
+                    fluid.io.save_inference_model(
+                        dirname=model_name,
+                        feeded_var_names=feeded_var_names,
+                        target_vars=target_vars,
+                        executor=executor,
+                        main_program=program)
+
+            configs = {
+                "fs.default.name": hadoop_fs_name,
+                "hadoop.job.ugi": hadoop_fs_ugi
+            }
+            client = HDFSClient(hadoop_home, configs)
+
+            if pass_id == "-1":
+                dest = "%s/%s/base/dnn_plugin/" % (output_path, day)
+            else:
+                dest = "%s/%s/delta-%s/dnn_plugin/" % (output_path, day,
+                                                       pass_id)
+            if not client.is_exist(dest):
+                client.makedirs(dest)
+
+            client.upload(dest, model_name)
+
+        fleet._role_maker._barrier_worker()
+
     def save_paddle_params(self,
                            executor,
                            scope,
