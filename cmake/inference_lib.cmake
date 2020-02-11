@@ -119,7 +119,17 @@ else()
 endif()
 endif()
 
-set(dst_dir "${FLUID_INFERENCE_INSTALL_DIR}/third_party/install/gflags")
+#set(dst_dir "${FLUID_INFERENCE_INSTALL_DIR}/third_party/install/gflags")
+#copy(${TARGET}
+#     SRCS ${GFLAGS_INCLUDE_DIR} ${GFLAGS_LIBRARIES}
+#     DSTS ${dst_dir} ${dst_dir}/lib)
+
+
+set(dst_dir "${FLUID_INFERENCE_INSTALL_DIR}/third_party/threadpool")
+copy(inference_lib_dist
+        SRCS ${THREADPOOL_INCLUDE_DIR}/ThreadPool.h
+        DSTS ${dst_dir})
+
 copy(inference_lib_dist
         SRCS ${GFLAGS_INCLUDE_DIR} ${GFLAGS_LIBRARIES}
         DSTS ${dst_dir} ${dst_dir}/lib)
