@@ -188,31 +188,41 @@ class DistributedAdam(DistributedOptimizerImplBase):
         for loss in losses:
             sparse_table = self._find_multi_distributed_lookup_table([loss])
             prog_id = str(id(loss.block.program))
-            prog_id_to_sparse_table[prog_id] = sparse_table
-
-            # get sparse_table_to_index
-            for tn in sparse_table:
-                if sparse_table_to_index.get(tn) is None:
-                    sparse_table_to_index[tn] = sparse_table_index
-                    sparse_table_index += 1
-
-            # get inputs_dict
-            inputs_dict = self._find_distributed_lookup_table_inputs(
-                loss.block.program, sparse_table)
-            prog_id_to_inputs_dict[prog_id] = inputs_dict
-            # get outputs_dict
-            outputs_dict = self._find_distributed_lookup_table_outputs(
-                loss.block.program, sparse_table)
-            prog_id_to_outputs_dict[prog_id] = outputs_dict
-
-            prog_id_to_worker[prog_id] = DownpourWorker(self._window)
-
             # param_grads of program
             params_grads = sorted(
                 fluid.backward.append_backward(loss, parameter_list,
                                                no_grad_set),
                 key=lambda x: x[0].name)
-            prog_id_to_param_grads[prog_id] = params_grads
+
+            if prog_id not in program_id_set:
+                program_id_set.add(prog_id)
+                sparse_table = self._find_multi_distributed_lookup_table([loss])
+                prog_id_to_sparse_table[prog_id] = sparse_table
+
+                # get sparse_table_to_index
+                for tn in sparse_table:
+                    if sparse_table_to_index.get(tn) is None:
+                        sparse_table_to_index[tn] = sparse_table_index
+                        sparse_table_index += 1
+
+                # get inputs_dict
+                inputs_dict = self._find_distributed_lookup_table_inputs(
+                    loss.block.program, sparse_table)
+                prog_id_to_inputs_dict[prog_id] = inputs_dict
+                # get outputs_dict
+                outputs_dict = self._find_distributed_lookup_table_outputs(
+                    loss.block.program, sparse_table)
+                prog_id_to_outputs_dict[prog_id] = outputs_dict
+
+                prog_id_to_worker[prog_id] = DownpourWorker(self._window)
+
+                grads_dict = self._find_distributed_lookup_table_grads(
+                    loss.block.program, sparse_table)
+                prog_id_to_sparse_grads[prog_id] = grads_dict
+
+            if prog_id not in prog_id_to_param_grads:
+                prog_id_to_param_grads[prog_id] = []
+            prog_id_to_param_grads[prog_id].append(params_grads)
 
             grads_dict = self._find_distributed_lookup_table_grads(
                 loss.block.program, sparse_table)
