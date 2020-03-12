@@ -73,6 +73,47 @@ class AucKernel : public framework::OpKernel<T> {
     size_t inference_width = predict->dims()[1];
     const T *inference_data = predict->data<T>();
     const auto *label_data = label->data<int64_t>();
+    const int bucket_length = num_thresholds + 1;
+    if (slide_steps == 0) {
+      for (size_t i = 0; i < batch_size; i++) {
+        // if predict_data[i] has dim of 2, then predict_data[i][1] is pos prob
+        // if predict_data[i] has dim of 1, then predict_data[i][0] is pos prob
+        auto predict_data =
+            inference_data[i * inference_width + (inference_width - 1)];
+        PADDLE_ENFORCE_LE(predict_data, 1,
+                          platform::errors::PreconditionNotMet(
+                              "The predict data must less or equal 1."));
+        PADDLE_ENFORCE_GE(predict_data, 0,
+                          platform::errors::PreconditionNotMet(
+                              "The predict data must gather or equal 0."));
+
+        uint32_t binIdx = static_cast<uint32_t>(predict_data * num_thresholds);
+        if (label_data[i] > 0) {
+          origin_stat_pos[binIdx] += 1;
+        } else if (label_data[i] == 0) {
+          origin_stat_neg[binIdx] += 1;
+        }
+      }
+      return;
+    }
+    // the last number of origin_stat_pos store the index should be used in
+    // current step
+    int cur_step_index =
+        static_cast<int>(origin_stat_pos[(slide_steps + 1) * bucket_length]) %
+        slide_steps;
+    int cur_step_begin = cur_step_index * bucket_length;
+    int sum_step_begin = slide_steps * bucket_length;
+    for (int i = 0; i < bucket_length; ++i) {
+      origin_stat_pos[sum_step_begin + i] -=
+          origin_stat_pos[cur_step_begin + i];
+      origin_stat_neg[sum_step_begin + i] -=
+          origin_stat_neg[cur_step_begin + i];
+    }
+
+    std::memset(origin_stat_pos + cur_step_begin, 0,
+                bucket_length * sizeof(int64_t));
+    std::memset(origin_stat_neg + cur_step_begin, 0,
+                bucket_length * sizeof(int64_t));
 
     for (size_t i = 0; i < batch_size; i++) {
       // if predict_data[i] has dim of 2, then predict_data[i][1] is pos prob
@@ -85,10 +126,10 @@ class AucKernel : public framework::OpKernel<T> {
                         "The predict data must gather or equal 0.");
 
       uint32_t binIdx = static_cast<uint32_t>(predict_data * num_thresholds);
-      if (label_data[i]) {
-        (*stat_pos)[binIdx] += 1.0;
-      } else {
-        (*stat_neg)[binIdx] += 1.0;
+      if (label_data[i] > 0) {
+        origin_stat_pos[cur_step_begin + binIdx] += 1;
+      } else if (label_data[i] == 0) {
+        origin_stat_neg[cur_step_begin + binIdx] += 1;
       }
     }
 
