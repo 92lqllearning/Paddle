@@ -53,12 +53,14 @@ class DataNormOp : public framework::OperatorWithKernel {
     PADDLE_ENFORCE(ctx->HasOutput("Y"), "");
     bool enable_scale_and_shift = ctx->Attrs().Get<bool>("enable_scale_and_shift");
     if (enable_scale_and_shift) {
-      PADDLE_ENFORCE_EQ(ctx->HasInput("scale_w"), true,
-                        platform::errors::InvalidArgument(
-                            "Input(scale_w) of DataNormOp should not be null."));
-      PADDLE_ENFORCE_EQ(ctx->HasInput("bias"), true,
-                        platform::errors::InvalidArgument(
-                            "Input(bias) of DataNormOp should not be null."));     
+      CHECK(ctx->HasInput("scale_w"));
+      CHECK(ctx->HasInput("bias"));
+//      PADDLE_ENFORCE_EQ(ctx->HasInput("scale_w"), true,
+//                        platform::errors::InvalidArgument(
+//                            "Input(scale_w) of DataNormOp should not be null."));
+//      PADDLE_ENFORCE_EQ(ctx->HasInput("bias"), true,
+//                        platform::errors::InvalidArgument(
+//                            "Input(bias) of DataNormOp should not be null."));     
     }
 
     const auto x_dims = ctx->GetInputDim("X");
@@ -394,13 +396,14 @@ class DataNormGradOp : public framework::OperatorWithKernel {
     if (enable_scale_and_shift) {
       const bool has_scale_grad = ctx->HasOutput(framework::GradVarName("scale_w"));
       const bool has_bias_grad = ctx->HasOutput(framework::GradVarName("bias"));
-
-      PADDLE_ENFORCE_EQ((has_scale_grad == has_bias_grad), true,
-                        platform::errors::InvalidArgument(
-                            "Output(Scale@GRAD) and Output(Bias@GRAD) must be null "
-                            "or not be null at same time. But now, "
-                            "has Scale@Grad=[%d], has Bias@GRAD=[%d]",
-                            has_scale_grad, has_bias_grad));      
+        
+      CHECK(has_scale_grad == has_bias_grad);
+//      PADDLE_ENFORCE_EQ((has_scale_grad == has_bias_grad), true,
+//                        platform::errors::InvalidArgument(
+//                            "Output(Scale@GRAD) and Output(Bias@GRAD) must be null "
+//                            "or not be null at same time. But now, "
+//                            "has Scale@Grad=[%d], has Bias@GRAD=[%d]",
+//                            has_scale_grad, has_bias_grad));      
       if (has_scale_grad) {
         ctx->SetOutputDim(framework::GradVarName("scale_w"), {C});
         ctx->SetOutputDim(framework::GradVarName("bias"), {C});

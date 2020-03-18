@@ -24,21 +24,21 @@ class ShuffleBatchOp : public framework::OperatorWithKernel {
   using framework::OperatorWithKernel::OperatorWithKernel;
 
   void InferShape(framework::InferShapeContext *ctx) const override {
-    PADDLE_ENFORCE_EQ(
-        ctx->HasInput("X"), true,
-        platform::errors::NotFound("Input(X) should not be null."));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasInput("Seed"), true,
-        platform::errors::NotFound("Input(Seed) should not be null."));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasOutput("Out"), true,
-        platform::errors::NotFound("Output(Out) should not be null."));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasOutput("ShuffleIdx"), true,
-        platform::errors::NotFound("Output(ShuffleIdx) should not be null."));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasOutput("SeedOut"), true,
-        platform::errors::NotFound("Output(SeedOut) should not be null."));
+//    PADDLE_ENFORCE_EQ(
+    CHECK(ctx->HasInput("X") == true);
+//        platform::errors::NotFound("Input(X) should not be null."));
+//    PADDLE_ENFORCE_EQ(
+    CHECK(ctx->HasInput("Seed") == true);
+//        platform::errors::NotFound("Input(Seed) should not be null."));
+//    PADDLE_ENFORCE_EQ(
+    CHECK(ctx->HasOutput("Out") == true);
+//        platform::errors::NotFound("Output(Out) should not be null."));
+//    PADDLE_ENFORCE_EQ(
+    CHECK(ctx->HasOutput("ShuffleIdx") == true);
+//        platform::errors::NotFound("Output(ShuffleIdx) should not be null."));
+//    PADDLE_ENFORCE_EQ(
+    CHECK(ctx->HasOutput("SeedOut") == true);
+//        platform::errors::NotFound("Output(SeedOut) should not be null."));
 
     ctx->ShareDim("X", "Out");
     ctx->ShareLoD("X", "Out");
@@ -50,8 +50,10 @@ class ShuffleBatchOp : public framework::OperatorWithKernel {
  protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
-    auto data_type = OperatorWithKernel::IndicateVarDataType(ctx, "X");
-    return framework::OpKernelType(data_type, ctx.device_context());
+     return framework::OpKernelType(ctx.Input<Tensor>("X")->type(),     //framework::GradVarName("Out"),
+                                    platform::CPUPlace());
+//    auto data_type = OperatorWithKernel::IndicateVarDataType(ctx, "X");
+//    return framework::OpKernelType(data_type, ctx.device_context());
   }
 };
 
@@ -86,15 +88,15 @@ class ShuffleBatchOpGrad : public framework::OperatorWithKernel {
   using framework::OperatorWithKernel::OperatorWithKernel;
 
   void InferShape(framework::InferShapeContext *ctx) const override {
-    PADDLE_ENFORCE_EQ(
-        ctx->HasInput("ShuffleIdx"), true,
-        platform::errors::NotFound("Input(ShuffleIdx) should not be null"));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasInput(framework::GradVarName("Out")), true,
-        platform::errors::NotFound("Grad Input(Out) should not be null"));
-    PADDLE_ENFORCE_EQ(
-        ctx->HasOutput(framework::GradVarName("X")), true,
-        platform::errors::NotFound("Grad Output(X) should not be null"));
+//    PADDLE_ENFORCE_EQ(
+      CHECK(ctx->HasInput("ShuffleIdx") == true);
+//        platform::errors::NotFound("Input(ShuffleIdx) should not be null"));
+//    PADDLE_ENFORCE_EQ(
+      CHECK(ctx->HasInput(framework::GradVarName("Out")) == true);
+//        platform::errors::NotFound("Grad Input(Out) should not be null"));
+//    PADDLE_ENFORCE_EQ(
+      CHECK(ctx->HasOutput(framework::GradVarName("X")) ==  true);
+//        platform::errors::NotFound("Grad Output(X) should not be null"));
 
     ctx->ShareDim(framework::GradVarName("Out"), framework::GradVarName("X"));
     ctx->ShareLoD(framework::GradVarName("Out"), framework::GradVarName("X"));
@@ -103,20 +105,25 @@ class ShuffleBatchOpGrad : public framework::OperatorWithKernel {
  protected:
   framework::OpKernelType GetExpectedKernelType(
       const framework::ExecutionContext &ctx) const override {
-    auto data_type = OperatorWithKernel::IndicateVarDataType(
-        ctx, framework::GradVarName("Out"));
-    return framework::OpKernelType(data_type, ctx.device_context());
+//    auto data_type = OperatorWithKernel::IndicateVarDataType(
+//        ctx, framework::GradVarName("Out"));
+//    return framework::OpKernelType(data_type, ctx.device_context());
+    return framework::OpKernelType(ctx.Input<Tensor>("Out")->type(),     //framework::GradVarName("Out"),
+                                    platform::CPUPlace());
   }
 };
 
-template <typename T>
-class ShuffleBatchGradOpMaker : public framework::SingleGradOpMaker<T> {
+//template <typename T>
+class ShuffleBatchGradOpMaker : public framework::SingleGradOpDescMaker {//SingleGradOpMaker<T> {
  public:
-  using framework::SingleGradOpMaker<T>::SingleGradOpMaker;
+//  using framework::SingleGradOpMaker<T>::SingleGradOpMaker;
+  using framework::SingleGradOpDescMaker::SingleGradOpDescMaker;
 
  protected:
-  std::unique_ptr<T> Apply() const override {
-    std::unique_ptr<T> op(new T());
+ std::unique_ptr<framework::OpDesc> Apply() const override {
+//  std::unique_ptr<T> Apply() const override {
+//    std::unique_ptr<T> op(new T());
+    std::unique_ptr<framework::OpDesc> op(new framework::OpDesc());
     op->SetType("shuffle_batch_grad");
     op->SetInput("ShuffleIdx", this->Output("ShuffleIdx"));
     op->SetAttrMap(this->Attrs());
@@ -130,9 +137,11 @@ class ShuffleBatchGradOpMaker : public framework::SingleGradOpMaker<T> {
 }  // namespace paddle
 
 namespace ops = paddle::operators;
+
+
 REGISTER_OPERATOR(shuffle_batch, ops::ShuffleBatchOp, ops::ShuffleBatchOpMaker,
-                  ops::ShuffleBatchGradOpMaker<paddle::framework::OpDesc>,
-                  ops::ShuffleBatchGradOpMaker<paddle::imperative::OpBase>);
+                  ops::ShuffleBatchGradOpMaker);
+//                  ops::ShuffleBatchGradOpMaker<paddle::imperative::OpBase>);
 REGISTER_OPERATOR(shuffle_batch_grad, ops::ShuffleBatchOpGrad);
 
 REGISTER_OP_CPU_KERNEL(shuffle_batch, ops::ShuffleBatchKernel<float>,

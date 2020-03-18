@@ -73,19 +73,21 @@ class AucKernel : public framework::OpKernel<T> {
     size_t inference_width = predict->dims()[1];
     const T *inference_data = predict->data<T>();
     const auto *label_data = label->data<int64_t>();
-    const int bucket_length = num_thresholds + 1;
+    int bucket_length = num_thresholds + 1;
     if (slide_steps == 0) {
       for (size_t i = 0; i < batch_size; i++) {
         // if predict_data[i] has dim of 2, then predict_data[i][1] is pos prob
         // if predict_data[i] has dim of 1, then predict_data[i][0] is pos prob
         auto predict_data =
             inference_data[i * inference_width + (inference_width - 1)];
-        PADDLE_ENFORCE_LE(predict_data, 1,
-                          platform::errors::PreconditionNotMet(
-                              "The predict data must less or equal 1."));
-        PADDLE_ENFORCE_GE(predict_data, 0,
-                          platform::errors::PreconditionNotMet(
-                              "The predict data must gather or equal 0."));
+        CHECK(predict_data <= 1);
+        CHECK(predict_data >= 0);
+    //    PADDLE_ENFORCE_LE(predict_data, 1,
+    //                      platform::errors::PreconditionNotMet(
+    //                          "The predict data must less or equal 1."));
+    //    PADDLE_ENFORCE_GE(predict_data, 0,
+    //                      platform::errors::PreconditionNotMet(
+    //                          "The predict data must gather or equal 0."));
 
         uint32_t binIdx = static_cast<uint32_t>(predict_data * num_thresholds);
         if (label_data[i] > 0) {
@@ -133,7 +135,7 @@ class AucKernel : public framework::OpKernel<T> {
       }
     }
 
-    int bucket_length = num_pred_buckets * sizeof(int64_t);
+    bucket_length = num_pred_buckets * sizeof(int64_t);
 
     // will stat auc unlimited.
     if (slide_steps == 0) {
