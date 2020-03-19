@@ -195,7 +195,6 @@ void PushSparseFunctor(
     int64_t* label_ptr = label_tensor->data<int64_t>();
 
     for (auto* tensor : inputs) {
-      VLOG(0) << "tensor";
       const int64_t* ids = tensor->data<int64_t>();
       size_t fea_idx = 0;
       for (size_t lod_idx = 1; lod_idx < tensor->lod()[0].size(); ++lod_idx) {
