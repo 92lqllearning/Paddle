@@ -367,9 +367,9 @@ class DataNormGradOp : public framework::OperatorWithKernel {
     PADDLE_ENFORCE(ctx->HasInput("X"));
     // PADDLE_ENFORCE(ctx->HasInput("scale_w"), "Input(scale_w) should not be null.");
     PADDLE_ENFORCE(ctx->HasInput(framework::GradVarName("Y")), "");
-    PADDLE_ENFORCE(ctx->HasInput("BatchSize"), "");
-    PADDLE_ENFORCE(ctx->HasInput("BatchSum"), "");
-    PADDLE_ENFORCE(ctx->HasInput("BatchSquareSum"), "");
+//    PADDLE_ENFORCE(ctx->HasInput("BatchSize"), "");
+//    PADDLE_ENFORCE(ctx->HasInput("BatchSum"), "");
+//    PADDLE_ENFORCE(ctx->HasInput("BatchSquareSum"), "");
     PADDLE_ENFORCE(ctx->HasInput("Means"), "");
     PADDLE_ENFORCE(ctx->HasInput("Scales"), "");
     bool enable_scale_and_shift = ctx->Attrs().Get<bool>("enable_scale_and_shift");
@@ -452,9 +452,9 @@ class DataNormGradKernel<platform::CPUDeviceContext, T>
   void Compute(const framework::ExecutionContext &ctx) const override {
     const auto *x = ctx.Input<Tensor>("X");
     const auto *d_y = ctx.Input<Tensor>(framework::GradVarName("Y"));
-    const auto *batch_size = ctx.Input<Tensor>("BatchSize");
-    const auto *batch_sum = ctx.Input<Tensor>("BatchSum");
-    const auto *batch_square_sum = ctx.Input<Tensor>("BatchSquareSum");
+ //   const auto *batch_size = ctx.Input<Tensor>("BatchSize");
+ //   const auto *batch_sum = ctx.Input<Tensor>("BatchSum");
+ //   const auto *batch_square_sum = ctx.Input<Tensor>("BatchSquareSum");
     const auto *scales = ctx.Input<Tensor>("Scales");
     const auto *means = ctx.Input<Tensor>("Means");
 
@@ -636,10 +636,10 @@ class DataNormGradKernel<platform::CPUDeviceContext, T>
           }
         } else {
           // calculate data sum and squre sum
-          ConstEigenVectorArrayMap<T> batch_size_arr(batch_size->data<T>(), C);
-          ConstEigenVectorArrayMap<T> batch_sum_arr(batch_sum->data<T>(), C);
-          ConstEigenVectorArrayMap<T> batch_square_sum_arr(
-              batch_square_sum->data<T>(), C);
+//          ConstEigenVectorArrayMap<T> batch_size_arr(batch_size->data<T>(), C);
+//          ConstEigenVectorArrayMap<T> batch_sum_arr(batch_sum->data<T>(), C);
+//          ConstEigenVectorArrayMap<T> batch_square_sum_arr(
+//              batch_square_sum->data<T>(), C);
           Eigen::Array<T, Eigen::Dynamic, 1> sample_sum(C);
           Eigen::Array<T, Eigen::Dynamic, 1> sample_square_sum(C);
           // calculate data sample sum and square sum

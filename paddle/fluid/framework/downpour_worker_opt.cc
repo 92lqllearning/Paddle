@@ -439,16 +439,18 @@ void DownpourWorkerOpt::TrainFiles() {
       if (tensor == nullptr) {
         continue;
       }
-      PADDLE_ENFORCE_EQ(
-          framework::TensorContainsInf(*tensor), false,
-          platform::errors::InvalidArgument("The target tensor %s contains Inf "
-                                            "should check some layers output.",
-                                            var_name));
-      PADDLE_ENFORCE_EQ(
-          framework::TensorContainsNAN(*tensor), false,
-          platform::errors::InvalidArgument("The target tensor %s contains Nan "
-                                            "should check some layers output.",
-                                            var_name));
+      CHECK(framework::TensorContainsInf(*tensor) == false);
+      CHECK(framework::TensorContainsNAN(*tensor) == false);
+//      PADDLE_ENFORCE_EQ(
+//          framework::TensorContainsInf(*tensor), false,
+//          platform::errors::InvalidArgument("The target tensor %s contains Inf "
+//                                            "should check some layers output.",
+//                                            var_name));
+//      PADDLE_ENFORCE_EQ(
+//          framework::TensorContainsNAN(*tensor), false,
+//          platform::errors::InvalidArgument("The target tensor %s contains Nan "
+//                                            "should check some layers output.",
+//                                            var_name));
     }
 
     if (need_to_push_sparse_) {
