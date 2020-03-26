@@ -51,6 +51,5 @@ class TestCloudRoleMaker(unittest.TestCase):
         ro = role_maker.PaddleCloudRoleMaker(is_collective=False)
         self.assertRaises(ValueError, ro.generate_role)
 
-
 if __name__ == "__main__":
     unittest.main()
