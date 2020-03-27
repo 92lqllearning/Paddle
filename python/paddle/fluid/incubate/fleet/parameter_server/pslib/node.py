@@ -204,7 +204,7 @@ class DownpourServer(Server):
 
             support_accessor_class = [
                 'DownpourFeatureValueAccessor', 'DownpourCtrAccessor',
-                'DownpourCtrDoubleAccessor'
+                'DownpourCtrDoubleAccessor',
                 'DownpourSparseValueAccessor', 'DownpourUnitAccessor'
             ]
             if strategy.get('sparse_accessor_class') is not None:
