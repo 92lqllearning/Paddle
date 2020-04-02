@@ -420,7 +420,8 @@ class DistributedAdam(DistributedOptimizerImplBase):
         accessor_class = server._server.downpour_server_param.downpour_table_param[
             0].accessor.accessor_class
         
-        if accessor_class == "DownpourCtrAccessor" or accessor_class == "DownpourUnitAccessor":
+        if accessor_class == "DownpourCtrAccessor" or accessor_class == "DownpourUnitAccessor" \
+            or accessor_class == "DownpourCtrDoubleAccessor":
             opt_info["dump_slot"] = True
         opt_info["adjust_ins_weight"] = strategy.get("adjust_ins_weight", {})
         opt_info["copy_table"] = strategy.get("copy_table", {})
