@@ -358,10 +358,10 @@ class DistributedAdam(DistributedOptimizerImplBase):
                             dense_table_index, self._learning_rate,
                             data_norm_params, data_norm_grads,
                             dense_start_table_id, sparse_table_names)
-                    program_configs[program_id]["pull_dense"].extend(
-                        [dense_table_index])
-                    program_configs[program_id]["push_dense"].extend(
-                        [dense_table_index])
+                        program_configs[program_id]["pull_dense"].extend(
+                            [dense_table_index])
+                        program_configs[program_id]["push_dense"].extend(
+                            [dense_table_index])
                     dense_table_index += 1
 
             # Todo(guru4elephant): figure out how to support more sparse parameters
