@@ -80,19 +80,7 @@ void DownpourWorker::Initialize(const TrainerDesc& desc) {
   no_cvm_ = desc.no_cvm();
   scale_datanorm_ = desc.scale_datanorm();
   dump_slot_ = desc.dump_slot();
-  dump_fields_.resize(desc.dump_fields_size());
-  for (int i = 0; i < desc.dump_fields_size(); ++i) {
-    dump_fields_[i] = desc.dump_fields(i);
-  }
   adjust_ins_weight_config_ = desc.adjust_ins_weight_config();
-  need_dump_param_ = false;
-  dump_param_.resize(desc.dump_param_size());
-  for (int i = 0; i < desc.dump_param_size(); ++i) {
-    dump_param_[i] = desc.dump_param(i);
-  }
-  if (desc.dump_param_size() != 0) {
-    need_dump_param_ = true;
-  }
   for (int i = 0; i < desc.check_nan_var_names_size(); ++i) {
     check_nan_var_names_.push_back(desc.check_nan_var_names(i));
   }
@@ -118,100 +106,6 @@ void DownpourWorker::Initialize(const TrainerDesc& desc) {
         table_dependency_[m.key()] = value;
       }
     }
-  }
-}
-
-void DownpourWorker::SetChannelWriter(ChannelObject<std::string>* queue) {
-  writer_.Reset(queue);
-}
-
-void DownpourWorker::SetNeedDump(bool need_dump_field) {
-  need_dump_field_ = need_dump_field;
-}
-
-template <typename T>
-std::string PrintLodTensorType(LoDTensor* tensor, int64_t start, int64_t end) {
-  auto count = tensor->numel();
-  if (start < 0 || end > count) {
-    VLOG(3) << "access violation";
-    return "access violation";
-  }
-  std::ostringstream os;
-  for (int64_t i = start; i < end; i++) {
-    os << ":" << tensor->data<T>()[i];
-  }
-  return os.str();
-}
-
-std::string PrintLodTensorIntType(LoDTensor* tensor, int64_t start,
-                                  int64_t end) {
-  auto count = tensor->numel();
-  if (start < 0 || end > count) {
-    VLOG(3) << "access violation";
-    return "access violation";
-  }
-  std::ostringstream os;
-  for (int64_t i = start; i < end; i++) {
-    os << ":" << static_cast<uint64_t>(tensor->data<int64_t>()[i]);
-  }
-  return os.str();
-}
-
-std::string DownpourWorker::PrintLodTensor(LoDTensor* tensor, int64_t start,
-                                           int64_t end) {
-  std::string out_val;
-  if (tensor->type() == proto::VarType::FP32) {
-    out_val = PrintLodTensorType<float>(tensor, start, end);
-  } else if (tensor->type() == proto::VarType::INT64) {
-    out_val = PrintLodTensorIntType(tensor, start, end);
-  } else if (tensor->type() == proto::VarType::FP64) {
-    out_val = PrintLodTensorType<double>(tensor, start, end);
-  } else {
-    out_val = "unsupported type";
-  }
-  return out_val;
-}
-
-std::pair<int64_t, int64_t> DownpourWorker::GetTensorBound(LoDTensor* tensor,
-                                                           int index) {
-  auto& dims = tensor->dims();
-  if (tensor->lod().size() != 0) {
-    auto& lod = tensor->lod()[0];
-    return {lod[index] * dims[1], lod[index + 1] * dims[1]};
-  } else {
-    return {index * dims[1], (index + 1) * dims[1]};
-  }
-}
-
-bool DownpourWorker::CheckValidOutput(LoDTensor* tensor, size_t batch_size) {
-  auto& dims = tensor->dims();
-  if (dims.size() != 2) return false;
-  if (tensor->lod().size() != 0) {
-    auto& lod = tensor->lod()[0];
-    if (lod.size() != batch_size + 1) {
-      return false;
-    }
-  } else {
-    if (dims[0] != batch_size) {
-      return false;
-    }
-  }
-  return true;
-}
-
-void DownpourWorker::DumpParam() {
-  std::string os;
-  for (auto& param : dump_param_) {
-    os.clear();
-    os = param;
-    Variable* var = thread_scope_->FindVar(param);
-    if (var == nullptr) {
-      continue;
-    }
-    LoDTensor* tensor = var->GetMutable<LoDTensor>();
-    int64_t len = tensor->numel();
-    os += PrintLodTensor(tensor, 0, len);
-    writer_ << os;
   }
 }
 
@@ -983,52 +877,17 @@ void DownpourWorker::TrainFiles() {
       }
     }
     if (need_dump_field_) {
-      int batch_size = device_reader_->GetCurBatchSize();
-      std::vector<std::string> ars(batch_size);
-      for (auto& ar : ars) {
-        ar.clear();
-      }
-      auto& ins_id_vec = device_reader_->GetInsIdVec();
-      auto& ins_content_vec = device_reader_->GetInsContentVec();
-      for (size_t i = 0; i < ins_id_vec.size(); i++) {
-        ars[i] += ins_id_vec[i];
-        ars[i] = ars[i] + "\t" + ins_content_vec[i];
-      }
-      for (auto& field : dump_fields_) {
-        Variable* var = thread_scope_->FindVar(field);
-        if (var == nullptr) {
-          continue;
-        }
-        LoDTensor* tensor = var->GetMutable<LoDTensor>();
-        if (!CheckValidOutput(tensor, batch_size)) {
-          continue;
-        }
-        for (int i = 0; i < batch_size; ++i) {
-          auto output_dim = tensor->dims()[1];
-          std::string output_dimstr =
-              boost::lexical_cast<std::string>(output_dim);
-          ars[i] = ars[i] + "\t" + field + ":" + output_dimstr;
-          auto bound = GetTensorBound(tensor, i);
-          ars[i] += PrintLodTensor(tensor, bound.first, bound.second);
-        }
-      }
-      // #pragma omp parallel for
-      for (size_t i = 0; i < ars.size(); i++) {
-        if (ars[i].length() == 0) {
-          continue;
-        }
-        writer_ << ars[i];
-      }
-      if (need_dump_param_ && thread_id_ == 0) {
-        DumpParam();
-      }
+      DumpField(*thread_scope_, dump_mode_, dump_interval_);
+    }
+    if (need_dump_param_ && thread_id_ == 0) {
+      DumpParam(*thread_scope_, batch_cnt);
     }
 
     PrintFetchVars();
     thread_scope_->DropKids();
     ++batch_cnt;
   }
-  if (need_dump_field_) {
+  if (need_dump_field_ || need_dump_param_) {
     writer_.Flush();
   }
   if (copy_table_config_.need_copy()) {

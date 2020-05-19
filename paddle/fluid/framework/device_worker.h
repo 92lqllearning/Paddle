@@ -112,6 +112,7 @@ class DeviceWorker {
   }
   virtual ~DeviceWorker() {}
   virtual void Initialize(const TrainerDesc& desc) = 0;
+  virtual void InitRandomDumpConfig(const TrainerDesc& desc);
   virtual void SetDeviceIndex(int tid) = 0;
   virtual void TrainFiles() = 0;
   virtual void PrintFetchVars() = 0;
@@ -121,8 +122,21 @@ class DeviceWorker {
   virtual void BindingDataFeedMemory() = 0;
   virtual void SetRootScope(Scope* root_scope);
   virtual void SetDataFeed(DataFeed* data_feed);
-  virtual void SetNeedDump(bool need_dump_field) {}
-  virtual void SetChannelWriter(ChannelObject<std::string>* queue) {}
+  virtual void SetNeedDumpField(bool need_dump_field) {
+    need_dump_field_ = need_dump_field;
+  }
+  virtual void SetNeedDumpParam(bool need_dump_param) {
+    need_dump_param_ = need_dump_param;
+  }
+  virtual void SetDumpFieldVector(const std::vector<std::string>& dump_fields) {
+    dump_fields_ = &dump_fields;
+  }
+  virtual void SetDumpParamVector(const std::vector<std::string>& dump_param) {
+    dump_param_ = &dump_param;
+  }
+  virtual void SetChannelWriter(ChannelObject<std::string>* queue) {
+    writer_.Reset(queue);
+  }
   virtual void SetPlace(const paddle::platform::Place& place) {
     place_ = place;
   }
@@ -132,6 +146,9 @@ class DeviceWorker {
   virtual Scope* GetThreadScope() { return thread_scope_; }
 
  protected:
+  virtual void DumpParam(const Scope& scope, const int batch_id);
+  virtual void DumpField(const Scope& scope, int dump_mode,
+                         int dump_interval = 10000);
   Scope* root_scope_ = nullptr;
   Scope* thread_scope_;
   paddle::platform::Place place_;
@@ -140,6 +157,16 @@ class DeviceWorker {
   FetchConfig fetch_config_;
   bool use_cvm_;
   bool no_cvm_;
+
+  // dump params or grads for debug
+  bool need_dump_param_;
+  bool need_dump_field_;
+  const std::vector<std::string>* dump_param_;
+  const std::vector<std::string>* dump_fields_;
+
+  int dump_mode_ = 0;
+  int dump_interval_ = 10000;
+  ChannelWriter<std::string> writer_;
 };
 
 class CPUWorkerBase : public DeviceWorker {
@@ -177,6 +204,7 @@ class HogwildWorker : public CPUWorkerBase {
  protected:
   void CreateThreadOperators(const ProgramDesc& program);
   void CreateThreadScope(const ProgramDesc& program);
+
   std::vector<std::string> op_names_;
   std::vector<OperatorBase*> ops_;
   // Scope* thread_scope_;
@@ -192,8 +220,6 @@ class DownpourWorker : public HogwildWorker {
   virtual void Initialize(const TrainerDesc& desc);
   virtual void TrainFiles();
   virtual void TrainFilesWithProfiler();
-  virtual void SetNeedDump(bool need_dump_field);
-  virtual void SetChannelWriter(ChannelObject<std::string>* queue);
 
  protected:
   std::shared_ptr<paddle::framework::FleetWrapper> fleet_ptr_;
@@ -206,9 +232,7 @@ class DownpourWorker : public HogwildWorker {
   void CopySparseTable();
   void CopyDenseTable();
   void CopyDenseVars();
-  std::string PrintLodTensor(LoDTensor* tensor, int64_t start, int64_t end);
-  std::pair<int64_t, int64_t> GetTensorBound(LoDTensor* tensor, int index);
-  bool CheckValidOutput(LoDTensor* tensor, size_t batch_size);
+
   DownpourWorkerParameter param_;
   // copy table
   CopyTableConfig copy_table_config_;

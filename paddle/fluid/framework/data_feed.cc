@@ -784,6 +784,27 @@ bool MultiSlotInMemoryDataFeed::ParseOneInstanceFromPipe(Record* instance) {
       pos += len + 1;
       VLOG(3) << "content " << instance->content_;
     }
+    if (parse_logkey_) {
+      int num = strtol(&str[pos], &endptr, 10);
+      CHECK(num == 1);  // NOLINT
+      pos = endptr - str + 1;
+      size_t len = 0;
+      while (str[pos + len] != ' ') {
+        ++len;
+      }
+      // parse_logkey
+      std::string log_key = std::string(str + pos, len);
+      uint64_t search_id;
+      uint32_t cmatch;
+      uint32_t rank;
+      GetMsgFromLogKey(log_key, &search_id, &cmatch, &rank);
+
+      instance->ins_id_ = log_key;
+      instance->search_id = search_id;
+      instance->cmatch = cmatch;
+      instance->rank = rank;
+      pos += len + 1;
+    }
     for (size_t i = 0; i < use_slots_index_.size(); ++i) {
       int idx = use_slots_index_[i];
       int num = strtol(&str[pos], &endptr, 10);

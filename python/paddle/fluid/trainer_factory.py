@@ -67,6 +67,26 @@ class TrainerFactory(object):
                     trainer._set_dump_file_num(opt_info["dump_file_num"])
                 if opt_info.get("dump_converter") is not None:
                     trainer._set_dump_converter(opt_info["dump_converter"])
+                if opt_info.get("dump_param") is not None:
+                    trainer._set_dump_param(opt_info["dump_param"])
+                if opt_info.get("enable_random_dump") is not None:
+                    trainer._set_enable_random_dump(opt_info[
+                        "enable_random_dump"])
+                if opt_info.get("dump_interval") is not None:
+                    trainer._set_dump_interval(opt_info["dump_interval"])
+                if opt_info.get("random_with_lineid") is not None:
+                    trainer._set_random_with_lineid(opt_info[
+                        "random_with_lineid"])
+
+            if "fleet_desc" in opt_info:
+                device_worker._set_fleet_desc(opt_info["fleet_desc"])
+                trainer._set_fleet_desc(opt_info["fleet_desc"])
+                if opt_info.get("use_cvm") is not None:
+                    trainer._set_use_cvm(opt_info["use_cvm"])
+                if opt_info.get("no_cvm") is not None:
+                    trainer._set_no_cvm(opt_info["no_cvm"])
+                if opt_info.get("scale_datanorm") is not None:
+                    trainer._set_scale_datanorm(opt_info["scale_datanorm"])
                 if opt_info.get("adjust_ins_weight") is not None:
                     trainer._set_adjust_ins_weight(opt_info[
                         "adjust_ins_weight"])
