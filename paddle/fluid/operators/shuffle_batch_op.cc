@@ -108,8 +108,9 @@ class ShuffleBatchOpGrad : public framework::OperatorWithKernel {
 //    auto data_type = OperatorWithKernel::IndicateVarDataType(
 //        ctx, framework::GradVarName("Out"));
 //    return framework::OpKernelType(data_type, ctx.device_context());
-    return framework::OpKernelType(ctx.Input<Tensor>("Out")->type(),     //framework::GradVarName("Out"),
-                                    platform::CPUPlace());
+    return framework::OpKernelType(ctx.Input<Tensor>(framework::GradVarName("Out"))->type(), platform::CPUPlace());
+//    return framework::OpKernelType(ctx.Input<Tensor>("Out")->type(),     //framework::GradVarName("Out"),
+//                                    platform::CPUPlace());
   }
 };
 
